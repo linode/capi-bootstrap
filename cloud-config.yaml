@@ -1,0 +1,105 @@
+#cloud-config
+write_files:
+  - path: /var/lib/rancher/k3s/server/manifests/cert-manager.yaml
+    content: |
+      ---
+      apiVersion: helm.cattle.io/v1
+      kind: HelmChart
+      metadata:
+        name: cert-manager
+        namespace: kube-system
+      spec:
+        repo: https://charts.jetstack.io
+        chart: cert-manager
+        targetNamespace: cert-manager
+        createNamespace: true
+        valuesContent: |-
+          installCRDs: true
+  - path: /var/lib/rancher/k3s/server/manifests/capi-operator.yaml
+    content: |
+      ---
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: capi-operator-system
+      ---
+      apiVersion: helm.cattle.io/v1
+      kind: HelmChart
+      metadata:
+        name: capi-operator
+        namespace: capi-operator-system
+      spec:
+        repo: https://kubernetes-sigs.github.io/cluster-api-operator
+        chart: cluster-api-operator
+        targetNamespace: capi-operator-system
+        createNamespace: true
+        valuesContent: |-
+          core: cluster-api
+          addon: helm
+          manager:
+            featureGates:
+              core:
+                ClusterResourceSet: true
+                ClusterTopology: true
+
+  - path: /var/lib/rancher/k3s/server/manifests/capi-k3s.yaml
+    content: |
+      ---
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: capi-k3s-bootstrap-system
+      ---
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: capi-k3s-control-plane-system
+      ---
+      apiVersion: operator.cluster.x-k8s.io/v1alpha2
+      kind: BootstrapProvider
+      metadata:
+        name: k3s
+        namespace: capi-k3s-bootstrap-system
+      spec:
+        fetchConfig:
+          url: https://github.com/k3s-io/cluster-api-k3s/releases/latest/bootstrap-components.yaml
+      ---
+      apiVersion: operator.cluster.x-k8s.io/v1alpha2
+      kind: ControlPlaneProvider
+      metadata:
+        name: k3s
+        namespace: capi-k3s-control-plane-system
+      spec:
+        fetchConfig:
+          url: https://github.com/k3s-io/cluster-api-k3s/releases/latest/control-plane-components.yaml
+
+  - path: /var/lib/rancher/k3s/server/manifests/capi-linode.yaml
+    content: |
+      ---
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: capl-system
+      ---
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: capl-variables
+        namespace: capl-system
+      type: Opaque
+      stringData:
+        LINODE_TOKEN: DUMMYTOKEN
+      ---
+      apiVersion: operator.cluster.x-k8s.io/v1alpha2
+      kind: InfrastructureProvider
+      metadata:
+        name: linode
+        namespace: capl-system
+      spec:
+        fetchConfig:
+          url: https://github.com/linode/cluster-api-provider-linode/releases/latest/infrastructure-components.yaml
+        configSecret:
+          name: capl-variables
+
+runcmd:
+  - curl -sfL https://get.k3s.io | sh -
