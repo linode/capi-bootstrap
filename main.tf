@@ -11,7 +11,7 @@ provider "linode" {
 }
 resource "linode_nodebalancer" "capi-bootstrap" {
   label = "capi-bootstrap"
-  region = "us-mia"
+  region = var.region
   tags       = ["capi-bootstrap"]
 }
 
@@ -35,16 +35,30 @@ resource "linode_nodebalancer_node" "capi-bootstrap-node" {
   }
 }
 
+variable "token" {
+  type = string
+  default = ""
+}
+
+variable "region" {
+  type = string
+  default = "us-mia"
+}
 
 resource "linode_instance" "bootstrap" {
   label           = "capi-bootstrap"
   image           = "linode/debian11"
-  region          = "us-mia"
+  region          = var.region
   type            = "g6-standard-6"
   authorized_keys = []
   root_pass       = "AkamaiPass123@1"
   metadata {
-    user_data = base64encode(templatefile("cloud-config.yaml", { NB_IP = linode_nodebalancer.capi-bootstrap.ipv4 }))
+    user_data = base64encode(templatefile("cloud-config.yaml", { LINODE_TOKEN =var.token,
+      REGION = var.region,
+      NB_IP = linode_nodebalancer.capi-bootstrap.ipv4,
+      NB_PORT = linode_nodebalancer_config.capi-bootstrap-api-server.port,
+      NB_ID = linode_nodebalancer.capi-bootstrap.id,
+      NB_CONFIG_ID = linode_nodebalancer_config.capi-bootstrap-api-server.id  }))
   }
 
   tags       = ["capi-bootstrap"]

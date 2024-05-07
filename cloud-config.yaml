@@ -90,7 +90,7 @@ write_files:
         namespace: capl-system
       type: Opaque
       stringData:
-        LINODE_TOKEN: DUMMYTOKEN
+        LINODE_TOKEN: ${LINODE_TOKEN}
       ---
       apiVersion: operator.cluster.x-k8s.io/v1alpha2
       kind: InfrastructureProvider
@@ -103,17 +103,241 @@ write_files:
         configSecret:
           name: capl-variables
 
+  - path: /var/lib/rancher/k3s/server/manifests/k3s-cilium-config.yaml
+    content: |
+      apiVersion: helm.cattle.io/v1
+      kind: HelmChart
+      metadata:
+        name: cilium
+        namespace: kube-system
+      spec:
+        targetNamespace: kube-system
+        version: 1.15.0
+        chart: cilium
+        repo: https://helm.cilium.io/
+        bootstrap: true
+        valuesContent: |-
+          bgpControlPlane:
+            enabled: true
+          ipam:
+            mode: kubernetes
+          k8s:
+            requireIPv4PodCIDR: true
+          hubble:
+            relay:
+              enabled: true
+            ui:
+              enabled: true
+
   - path: /etc/rancher/k3s/config.yaml
     owner: root:root
     permissions: '0640'
     content: |
       cluster-init: true
+      flannel-backend: none
+      disable-network-policy: true
       kube-apiserver-arg:
       - anonymous-auth=true
       - tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_RSA_WITH_AES_128_GCM_SHA256,TLS_RSA_WITH_AES_256_GCM_SHA384
       node-name: '{{ ds.meta_data.label }}'
       tls-san:
       - ${NB_IP}
+      
+
+  - path: /var/lib/rancher/k3s/server/manifests/capi-k3s.yaml
+    owner: root:root
+    content: |
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        labels:
+          clusterctl.cluster.x-k8s.io/move: "true"
+        name: test-k3s-credentials
+        namespace: default
+      stringData:
+        apiToken: ${LINODE_TOKEN}
+      ---
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: linode-test-k3s-crs-0
+        namespace: default
+      stringData:
+        linode-token-region.yaml: |-
+          kind: Secret
+          apiVersion: v1
+          metadata:
+            name: linode-token-region
+            namespace: kube-system
+          stringData:
+            apiToken: ${LINODE_TOKEN}
+            region: ${REGION}
+      ---
+      apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+      kind: KThreesConfigTemplate
+      metadata:
+        name: test-k3s-md-0
+        namespace: default
+      spec:
+        template:
+          spec:
+            agentConfig:
+              nodeName: '{{ ds.meta_data.label }}'
+            preK3sCommands:
+            - |
+              mkdir -p /etc/rancher/k3s/config.yaml.d/
+              echo "node-ip: $(ip a s eth1 |grep 'inet ' |cut -d' ' -f6|cut -d/ -f1)" >> /etc/rancher/k3s/config.yaml.d/capi-config.yaml
+            - sed -i '/swap/d' /etc/fstab
+            - swapoff -a
+            - hostnamectl set-hostname '{{ ds.meta_data.label }}' && hostname -F /etc/hostname
+      ---
+      apiVersion: cluster.x-k8s.io/v1beta1
+      kind: Cluster
+      metadata:
+        labels:
+          cluster: test-k3s
+        name: test-k3s
+        namespace: default
+      spec:
+        clusterNetwork:
+          pods:
+            cidrBlocks:
+            - 10.192.0.0/10
+        controlPlaneRef:
+          apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+          kind: KThreesControlPlane
+          name: test-k3s-control-plane
+        infrastructureRef:
+          apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
+          kind: LinodeCluster
+          name: test-k3s
+        paused: true
+      ---
+      apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+      kind: KThreesControlPlane
+      metadata:
+        name: test-k3s-control-plane
+        namespace: default
+      spec:
+        infrastructureTemplate:
+          apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
+          kind: LinodeMachineTemplate
+          name: test-k3s-control-plane
+        kthreesConfigSpec:
+          agentConfig:
+            nodeName: '{{ ds.meta_data.label }}'
+          files:
+          - content: |
+              flannel-backend: none
+              disable-network-policy: true
+            owner: root:root
+            path: /etc/rancher/k3s/config.yaml.d/capi-config.yaml
+          - content: |-
+              apiVersion: helm.cattle.io/v1
+              kind: HelmChart
+              metadata:
+                namespace: kube-system
+                name: ccm-linode
+              spec:
+                targetNamespace: kube-system
+                version: v0.4.4
+                chart: ccm-linode
+                repo: https://linode.github.io/linode-cloud-controller-manager/
+                bootstrap: true
+                valuesContent: |-
+                  routeController:
+                    vpcName: test-k3s
+                    clusterCIDR: 10.0.0.0/8
+                    configureCloudRoutes: true
+                  secretRef:
+                    name: "linode-token-region"
+                  nodeSelector:
+                    node-role.kubernetes.io/control-plane: "true"
+                  owner: root:root
+                  path: /var/lib/rancher/k3s/server/manifests/linode-ccm.yaml
+            owner: root:root
+            path: /var/lib/rancher/k3s/server/manifests/linode-ccm.yaml
+          - contentFrom:
+              secret:
+                key: linode-token-region.yaml
+                name: linode-test-k3s-crs-0
+            owner: root:root
+            path: /var/lib/rancher/k3s/server/manifests/linode-token-region.yaml
+          - content: |-
+              apiVersion: helm.cattle.io/v1
+              kind: HelmChart
+              metadata:
+                name: cilium
+                namespace: kube-system
+              spec:
+                targetNamespace: kube-system
+                version: 1.15.0
+                chart: cilium
+                repo: https://helm.cilium.io/
+                bootstrap: true
+                valuesContent: |-
+                  bgpControlPlane:
+                    enabled: true
+                  ipam:
+                    mode: kubernetes
+                  k8s:
+                    requireIPv4PodCIDR: true
+                  hubble:
+                    relay:
+                      enabled: true
+                    ui:
+                      enabled: true
+            owner: root:root
+            path: /var/lib/rancher/k3s/server/manifests/k3s-cilium-config.yaml
+            permissions: "0640"
+          preK3sCommands:
+          - |
+            echo "node-ip: $(ip a s eth1 |grep 'inet ' |cut -d' ' -f6|cut -d/ -f1)" >> /etc/rancher/k3s/config.yaml.d/capi-config.yaml
+          - sed -i '/swap/d' /etc/fstab
+          - swapoff -a
+          - hostnamectl set-hostname '{{ ds.meta_data.label }}' && hostname -F /etc/hostname
+          serverConfig:
+            disableComponents:
+            - servicelb
+            - traefik
+        replicas: 1
+        version: v1.29.1+k3s2
+        paused: true
+      ---
+      apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
+      kind: LinodeCluster
+      metadata:
+        name: test-k3s
+        namespace: default
+      spec:
+        credentialsRef:
+          name: test-k3s-credentials
+        region: ${REGION}
+        controlPlaneEndpoint:
+          host: ${NB_IP}
+          port: ${NB_PORT}
+        network:
+          loadBalancerType: NodeBalancer
+          nodeBalancerConfigID: ${NB_CONFIG_ID}
+          nodeBalancerID: ${NB_ID}
+      ---
+      apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
+      kind: LinodeMachineTemplate
+      metadata:
+        name: test-k3s-control-plane
+        namespace: default
+      spec:
+        template:
+          spec:
+            authorizedKeys: null
+            image: linode/ubuntu22.04
+            interfaces:
+            - primary: true
+              purpose: public
+            region: ${REGION}
+            type: g6-standard-4
+        paused: true
+
 hostname: '{{ ds.meta_data.label }}'
 runcmd:
   - curl -sfL https://get.k3s.io | sh -
