@@ -143,8 +143,52 @@ write_files:
       tls-san:
       - ${NB_IP}
       
-
-  - path: /var/lib/rancher/k3s/server/manifests/capi-k3s.yaml
+  - path: /var/lib/rancher/k3s/server/manifests/capi-pivot-machine.yaml
+    content: |
+      ---
+      apiVersion: cluster.x-k8s.io/v1beta1
+      kind: Machine
+      metadata:
+        annotations:
+          cluster.x-k8s.io/paused: "true"
+        labels:
+          cluster.x-k8s.io/cluster-name: test-k3s
+          cluster.x-k8s.io/control-plane: true
+        name: capi-bootstrap-1
+        namespace: default
+      spec:
+        bootstrap:
+          configRef: k3sconfig-dummy
+          dataSecretName: linode-test-k3s-crs-0
+        clusterName: test-k3s
+        providerID: linode://{{ ds.meta_data.id }}
+      ---
+      apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
+      kind: KThreesConfig
+      metadata:
+        labels:
+          cluster.x-k8s.io/cluster-name: test-k3s
+          cluster.x-k8s.io/control-plane: 
+        name: k3sconfig-dummy
+        namespace: default
+      spec:
+      ---
+      apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
+      kind: LinodeMachine
+      metadata:
+        labels:
+          cluster.x-k8s.io/cluster-name: test-k3s
+          cluster.x-k8s.io/control-plane: true
+          cluster.x-k8s.io/control-plane-name:
+        name: capi-bootstrap-1
+        namespace: default
+      spec:
+        image: linode/ubuntu22.04
+        instanceID: "{{ ds.meta_data.id }}"
+        providerID: "linode://{{ ds.meta_data.id }}"
+        region: {{ ds.meta_data.region }}
+        type: g6-standard-6
+  - path: /var/lib/rancher/k3s/server/manifests/capi-pivot-k3s.yaml
     owner: root:root
     content: |
       apiVersion: v1
@@ -171,7 +215,7 @@ write_files:
             namespace: kube-system
           stringData:
             apiToken: ${LINODE_TOKEN}
-            region: ${REGION}
+            region: {{ ds.meta_data.region }}
       ---
       apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
       kind: KThreesConfigTemplate
@@ -211,11 +255,12 @@ write_files:
           apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
           kind: LinodeCluster
           name: test-k3s
-        paused: true
       ---
       apiVersion: controlplane.cluster.x-k8s.io/v1beta1
       kind: KThreesControlPlane
       metadata:
+        annotations:
+          cluster.x-k8s.io/paused: "true"
         name: test-k3s-control-plane
         namespace: default
       spec:
@@ -302,7 +347,6 @@ write_files:
             - traefik
         replicas: 1
         version: v1.29.1+k3s2
-        paused: true
       ---
       apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
       kind: LinodeCluster
@@ -312,7 +356,7 @@ write_files:
       spec:
         credentialsRef:
           name: test-k3s-credentials
-        region: ${REGION}
+        region: {{ ds.meta_data.region }}
         controlPlaneEndpoint:
           host: ${NB_IP}
           port: ${NB_PORT}
@@ -334,10 +378,11 @@ write_files:
             interfaces:
             - primary: true
               purpose: public
-            region: ${REGION}
+            region: {{ ds.meta_data.region }}
             type: g6-standard-4
         paused: true
 
 hostname: '{{ ds.meta_data.label }}'
 runcmd:
   - curl -sfL https://get.k3s.io | sh -
+  - alias k="k3s kubectl"

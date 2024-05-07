@@ -40,6 +40,11 @@ variable "token" {
   default = ""
 }
 
+variable "authrized_keys" {
+  type = list(string)
+  default = []
+}
+
 variable "region" {
   type = string
   default = "us-mia"
@@ -50,11 +55,11 @@ resource "linode_instance" "bootstrap" {
   image           = "linode/debian11"
   region          = var.region
   type            = "g6-standard-6"
-  authorized_keys = []
+  authorized_keys = var.authrized_keys
   root_pass       = "AkamaiPass123@1"
   metadata {
-    user_data = base64encode(templatefile("cloud-config.yaml", { LINODE_TOKEN =var.token,
-      REGION = var.region,
+    user_data = base64encode(templatefile("cloud-config.yaml", {
+      LINODE_TOKEN =var.token,
       NB_IP = linode_nodebalancer.capi-bootstrap.ipv4,
       NB_PORT = linode_nodebalancer_config.capi-bootstrap-api-server.port,
       NB_ID = linode_nodebalancer.capi-bootstrap.id,
