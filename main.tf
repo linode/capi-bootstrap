@@ -35,7 +35,7 @@ resource "linode_nodebalancer_node" "capi-bootstrap-node" {
   }
 }
 
-variable "token" {
+variable "linode_token" {
   type    = string
   default = ""
 }
@@ -59,7 +59,7 @@ resource "linode_instance" "bootstrap" {
   root_pass       = "AkamaiPass123@1"
   metadata {
     user_data = base64encode(templatefile("cloud-config.yaml", {
-      LINODE_TOKEN = var.token,
+      LINODE_TOKEN = var.linode_token,
       NB_IP        = linode_nodebalancer.capi-bootstrap.ipv4,
       NB_PORT      = linode_nodebalancer_config.capi-bootstrap-api-server.port,
       NB_ID        = linode_nodebalancer.capi-bootstrap.id,
