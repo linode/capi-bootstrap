@@ -385,4 +385,7 @@ write_files:
 hostname: '{{ ds.meta_data.label }}'
 runcmd:
   - curl -sfL https://get.k3s.io | sh -
+  - curl -s -L https://github.com/derailed/k9s/releases/download/v0.32.4/k9s_Linux_amd64.tar.gz | tar -xvz -C /usr/local/bin k9s
   - echo "alias k=\"k3s kubectl\"" >> /root/.bashrc
+  - echo "export KUBECONFIG=/etc/rancher/k3s/k3s.yaml" >> /root/.bashrc
+
