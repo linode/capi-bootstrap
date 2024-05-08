@@ -385,4 +385,4 @@ write_files:
 hostname: '{{ ds.meta_data.label }}'
 runcmd:
   - curl -sfL https://get.k3s.io | sh -
-  - alias k="k3s kubectl"
+  - echo "alias k=\"k3s kubectl\"" >> /root/.bashrc

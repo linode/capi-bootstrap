@@ -10,17 +10,17 @@ terraform {
 provider "linode" {
 }
 resource "linode_nodebalancer" "capi-bootstrap" {
-  label = "capi-bootstrap"
+  label  = "capi-bootstrap"
   region = var.region
-  tags       = ["capi-bootstrap"]
+  tags   = ["capi-bootstrap"]
 }
 
 resource "linode_nodebalancer_config" "capi-bootstrap-api-server" {
   nodebalancer_id = linode_nodebalancer.capi-bootstrap.id
-  port = 6443
-  protocol = "tcp"
-  algorithm = "roundrobin"
-  check = "connection"
+  port            = 6443
+  protocol        = "tcp"
+  algorithm       = "roundrobin"
+  check           = "connection"
 }
 
 resource "linode_nodebalancer_node" "capi-bootstrap-node" {
@@ -36,17 +36,17 @@ resource "linode_nodebalancer_node" "capi-bootstrap-node" {
 }
 
 variable "token" {
-  type = string
+  type    = string
   default = ""
 }
 
-variable "authrized_keys" {
-  type = list(string)
+variable "authorized_keys" {
+  type    = list(string)
   default = []
 }
 
 variable "region" {
-  type = string
+  type    = string
   default = "us-mia"
 }
 
@@ -55,15 +55,15 @@ resource "linode_instance" "bootstrap" {
   image           = "linode/debian11"
   region          = var.region
   type            = "g6-standard-6"
-  authorized_keys = var.authrized_keys
+  authorized_keys = var.authorized_keys
   root_pass       = "AkamaiPass123@1"
   metadata {
     user_data = base64encode(templatefile("cloud-config.yaml", {
-      LINODE_TOKEN =var.token,
-      NB_IP = linode_nodebalancer.capi-bootstrap.ipv4,
-      NB_PORT = linode_nodebalancer_config.capi-bootstrap-api-server.port,
-      NB_ID = linode_nodebalancer.capi-bootstrap.id,
-      NB_CONFIG_ID = linode_nodebalancer_config.capi-bootstrap-api-server.id  }))
+      LINODE_TOKEN = var.token,
+      NB_IP        = linode_nodebalancer.capi-bootstrap.ipv4,
+      NB_PORT      = linode_nodebalancer_config.capi-bootstrap-api-server.port,
+      NB_ID        = linode_nodebalancer.capi-bootstrap.id,
+    NB_CONFIG_ID = linode_nodebalancer_config.capi-bootstrap-api-server.id }))
   }
 
   tags       = ["capi-bootstrap"]
