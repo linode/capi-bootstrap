@@ -149,42 +149,34 @@ write_files:
       apiVersion: cluster.x-k8s.io/v1beta1
       kind: Machine
       metadata:
-        annotations:
-          cluster.x-k8s.io/paused: "true"
         labels:
           cluster.x-k8s.io/cluster-name: test-k3s
-          cluster.x-k8s.io/control-plane: true
+          cluster.x-k8s.io/control-plane: "true"
         name: capi-bootstrap-1
         namespace: default
       spec:
         bootstrap:
-          configRef: k3sconfig-dummy
           dataSecretName: linode-test-k3s-crs-0
+        infrastructureRef:
+          apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
+          kind: LinodeMachine
+          name: capi-bootstrap-1
+          namespace: default
         clusterName: test-k3s
         providerID: linode://{{ ds.meta_data.id }}
-      ---
-      apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
-      kind: KThreesConfig
-      metadata:
-        labels:
-          cluster.x-k8s.io/cluster-name: test-k3s
-          cluster.x-k8s.io/control-plane: 
-        name: k3sconfig-dummy
-        namespace: default
-      spec:
       ---
       apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
       kind: LinodeMachine
       metadata:
         labels:
           cluster.x-k8s.io/cluster-name: test-k3s
-          cluster.x-k8s.io/control-plane: true
+          cluster.x-k8s.io/control-plane: "true"
           cluster.x-k8s.io/control-plane-name:
         name: capi-bootstrap-1
         namespace: default
       spec:
         image: linode/ubuntu22.04
-        instanceID: "{{ ds.meta_data.id }}"
+        instanceID: {{ ds.meta_data.id }}
         providerID: "linode://{{ ds.meta_data.id }}"
         region: {{ ds.meta_data.region }}
         type: g6-standard-6
@@ -373,18 +365,17 @@ write_files:
       spec:
         template:
           spec:
-            authorizedKeys: null
             image: linode/ubuntu22.04
-            interfaces:
-            - primary: true
-              purpose: public
             region: {{ ds.meta_data.region }}
             type: g6-standard-4
-        paused: true
 
 hostname: '{{ ds.meta_data.label }}'
 runcmd:
   - curl -sfL https://get.k3s.io | sh -
+  - sed -i s/127.0.0.1/${NB_IP}/ /etc/rancher/k3s/k3s.yaml
+  - until k3s kubectl get nodes; do sleep 5; done
+  - k3s kubectl create secret generic test-k3s-kubeconfig --from-file=value=/etc/rancher/k3s/k3s.yaml
+  - k3s kubectl label secret test-k3s-kubeconfig "cluster.x-k8s.io/cluster-name"="test-k3s"
   - curl -s -L https://github.com/derailed/k9s/releases/download/v0.32.4/k9s_Linux_amd64.tar.gz | tar -xvz -C /usr/local/bin k9s
   - echo "alias k=\"k3s kubectl\"" >> /root/.bashrc
   - echo "export KUBECONFIG=/etc/rancher/k3s/k3s.yaml" >> /root/.bashrc
