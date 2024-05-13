@@ -9,6 +9,7 @@ terraform {
 
 provider "linode" {
 }
+
 resource "linode_nodebalancer" "capi-bootstrap" {
   label  = "capi-bootstrap"
   region = var.region
@@ -27,7 +28,7 @@ resource "linode_nodebalancer_node" "capi-bootstrap-node" {
   nodebalancer_id = linode_nodebalancer.capi-bootstrap.id
   config_id       = linode_nodebalancer_config.capi-bootstrap-api-server.id
   address         = "${linode_instance.bootstrap.private_ip_address}:6443"
-  label           = "bootstrap-node"
+  label           = "test-k3s"
   weight          = 100
 
   lifecycle {
@@ -59,10 +60,11 @@ resource "linode_instance" "bootstrap" {
   root_pass       = "AkamaiPass123@1"
   metadata {
     user_data = base64encode(templatefile("cloud-config.yaml", {
-      LINODE_TOKEN = var.linode_token,
-      NB_IP        = linode_nodebalancer.capi-bootstrap.ipv4,
-      NB_PORT      = linode_nodebalancer_config.capi-bootstrap-api-server.port,
-      NB_ID        = linode_nodebalancer.capi-bootstrap.id,
+      LINODE_TOKEN    = var.linode_token,
+      AUTHORIZED_KEYS = jsonencode(var.authorized_keys),
+      NB_IP           = linode_nodebalancer.capi-bootstrap.ipv4,
+      NB_PORT         = linode_nodebalancer_config.capi-bootstrap-api-server.port,
+      NB_ID           = linode_nodebalancer.capi-bootstrap.id,
     NB_CONFIG_ID = linode_nodebalancer_config.capi-bootstrap-api-server.id }))
   }
 

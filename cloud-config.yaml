@@ -43,7 +43,40 @@ write_files:
               core:
                 ClusterResourceSet: true
                 ClusterTopology: true
-
+  - path: /var/lib/rancher/k3s/server/manifests/linode-ccm.yaml
+    owner: root:root
+    content: |
+      apiVersion: helm.cattle.io/v1
+      kind: HelmChart
+      metadata:
+       namespace: kube-system
+       name: ccm-linode
+      spec:
+       targetNamespace: kube-system
+       version: v0.4.4
+       chart: ccm-linode
+       repo: https://linode.github.io/linode-cloud-controller-manager/
+       bootstrap: true
+       valuesContent: |-
+         secretRef:
+           name: "linode-token-region"
+         image:
+           pullPolicy: IfNotPresent
+         secretRef:
+           name: "linode-token-region"
+         nodeSelector:
+           node-role.kubernetes.io/control-plane: "true"
+  - path: /var/lib/rancher/k3s/server/manifests/linode-token-region.yaml
+    owner: root:root
+    content: |
+      kind: Secret
+      apiVersion: v1
+      metadata:
+        name: linode-token-region
+        namespace: kube-system
+      stringData:
+        apiToken: ${LINODE_TOKEN}
+        region: {{ ds.meta_data.region }}
   - path: /var/lib/rancher/k3s/server/manifests/capi-k3s.yaml
     content: |
       ---
@@ -140,10 +173,20 @@ write_files:
       cluster-init: true
       flannel-backend: none
       disable-network-policy: true
+      disable-cloud-controller: true
+      disable:
+      - servicelb
+      - traefik
+      disable-cloud-controller: true
       kube-apiserver-arg:
       - anonymous-auth=true
       - tls-cipher-suites=TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,TLS_RSA_WITH_AES_128_GCM_SHA256,TLS_RSA_WITH_AES_256_GCM_SHA384
+      kube-controller-manager-arg:
+      - cloud-provider=external
+      kubelet-arg:
+      - cloud-provider=external
       node-name: '{{ ds.meta_data.label }}'
+      node-ip:
       tls-san:
       - ${NB_IP}
       
@@ -157,7 +200,7 @@ write_files:
           cluster.x-k8s.io/cluster-name: test-k3s
           cluster.x-k8s.io/control-plane: ""
           cluster.x-k8s.io/control-plane-name: ""
-        name: capi-bootstrap-1
+        name: capi-bootstrap
         namespace: default
       spec:
         bootstrap:
@@ -165,10 +208,11 @@ write_files:
         infrastructureRef:
           apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
           kind: LinodeMachine
-          name: capi-bootstrap-1
+          name: capi-bootstrap
           namespace: default
         clusterName: test-k3s
         providerID: linode://{{ ds.meta_data.id }}
+        version: v1.29.4+k3s1
       ---
       apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
       kind: LinodeMachine
@@ -177,7 +221,7 @@ write_files:
           cluster.x-k8s.io/cluster-name: test-k3s
           cluster.x-k8s.io/control-plane: ""
           cluster.x-k8s.io/control-plane-name: ""
-        name: capi-bootstrap-1
+        name: capi-bootstrap
         namespace: default
       spec:
         image: linode/ubuntu22.04
@@ -198,40 +242,6 @@ write_files:
       stringData:
         apiToken: ${LINODE_TOKEN}
       ---
-      apiVersion: v1
-      kind: Secret
-      metadata:
-        name: linode-test-k3s-crs-0
-        namespace: default
-      stringData:
-        linode-token-region.yaml: |-
-          kind: Secret
-          apiVersion: v1
-          metadata:
-            name: linode-token-region
-            namespace: kube-system
-          stringData:
-            apiToken: ${LINODE_TOKEN}
-            region: {{ ds.meta_data.region }}
-      ---
-      apiVersion: bootstrap.cluster.x-k8s.io/v1beta1
-      kind: KThreesConfigTemplate
-      metadata:
-        name: test-k3s-md-0
-        namespace: default
-      spec:
-        template:
-          spec:
-            agentConfig:
-              nodeName: '{{ ds.meta_data.label }}'
-            preK3sCommands:
-            - |
-              mkdir -p /etc/rancher/k3s/config.yaml.d/
-              echo "node-ip: $(ip a s eth1 |grep 'inet ' |cut -d' ' -f6|cut -d/ -f1)" >> /etc/rancher/k3s/config.yaml.d/capi-config.yaml
-            - sed -i '/swap/d' /etc/fstab
-            - swapoff -a
-            - hostnamectl set-hostname '{{ ds.meta_data.label }}' && hostname -F /etc/hostname
-      ---
       apiVersion: cluster.x-k8s.io/v1beta1
       kind: Cluster
       metadata:
@@ -247,18 +257,15 @@ write_files:
         controlPlaneRef:
           apiVersion: controlplane.cluster.x-k8s.io/v1beta1
           kind: KThreesControlPlane
-          name: test-k3s-control-plane
+          name: fake-control-plane
         infrastructureRef:
           apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
           kind: LinodeCluster
           name: test-k3s
-        paused: true
       ---
       apiVersion: controlplane.cluster.x-k8s.io/v1beta1
       kind: KThreesControlPlane
       metadata:
-        annotations:
-          cluster.x-k8s.io/paused: "true"
         name: test-k3s-control-plane
         namespace: default
       spec:
@@ -267,84 +274,26 @@ write_files:
           kind: LinodeMachineTemplate
           name: test-k3s-control-plane
         kthreesConfigSpec:
-          agentConfig:
-            nodeName: '{{ ds.meta_data.label }}'
           files:
-          - content: |
-              flannel-backend: none
-              disable-network-policy: true
-            owner: root:root
-            path: /etc/rancher/k3s/config.yaml.d/capi-config.yaml
-          - content: |-
-              apiVersion: helm.cattle.io/v1
-              kind: HelmChart
-              metadata:
-                namespace: kube-system
-                name: ccm-linode
-              spec:
-                targetNamespace: kube-system
-                version: v0.4.4
-                chart: ccm-linode
-                repo: https://linode.github.io/linode-cloud-controller-manager/
-                bootstrap: true
-                valuesContent: |-
-                  routeController:
-                    vpcName: test-k3s
-                    clusterCIDR: 10.0.0.0/8
-                    configureCloudRoutes: true
-                  secretRef:
-                    name: "linode-token-region"
-                  nodeSelector:
-                    node-role.kubernetes.io/control-plane: "true"
-                  owner: root:root
-                  path: /var/lib/rancher/k3s/server/manifests/linode-ccm.yaml
-            owner: root:root
-            path: /var/lib/rancher/k3s/server/manifests/linode-ccm.yaml
-          - contentFrom:
-              secret:
-                key: linode-token-region.yaml
-                name: linode-test-k3s-crs-0
-            owner: root:root
-            path: /var/lib/rancher/k3s/server/manifests/linode-token-region.yaml
-          - content: |-
-              apiVersion: helm.cattle.io/v1
-              kind: HelmChart
-              metadata:
-                name: cilium
-                namespace: kube-system
-              spec:
-                targetNamespace: kube-system
-                version: 1.15.0
-                chart: cilium
-                repo: https://helm.cilium.io/
-                bootstrap: true
-                valuesContent: |-
-                  bgpControlPlane:
-                    enabled: true
-                  ipam:
-                    mode: kubernetes
-                  k8s:
-                    requireIPv4PodCIDR: true
-                  hubble:
-                    relay:
-                      enabled: true
-                    ui:
-                      enabled: true
-            owner: root:root
-            path: /var/lib/rancher/k3s/server/manifests/k3s-cilium-config.yaml
-            permissions: "0640"
+            - path: /etc/rancher/k3s/config.yaml.d/capi-config.yaml
+              owner: root:root
+              content: |
+                flannel-backend: none
+                disable-network-policy: true
+          agentConfig:
+            nodeName: "{{ '{{ ds.meta_data.label }}' }}"
           preK3sCommands:
           - |
-            echo "node-ip: $(ip a s eth1 |grep 'inet ' |cut -d' ' -f6|cut -d/ -f1)" >> /etc/rancher/k3s/config.yaml.d/capi-config.yaml
+            echo "node-ip: $(hostname -I | grep -oE 192\.168\.[0-9]+\.[0-9]+)" >> /etc/rancher/k3s/config.yaml.d/capi-config.yaml
           - sed -i '/swap/d' /etc/fstab
           - swapoff -a
-          - hostnamectl set-hostname '{{ ds.meta_data.label }}' && hostname -F /etc/hostname
+          - hostnamectl set-hostname "{{ '{{ ds.meta_data.label }}' }}" && hostname -F /etc/hostname
           serverConfig:
             disableComponents:
             - servicelb
             - traefik
-        replicas: 1
-        version: v1.29.1+k3s2
+        replicas: 3
+        version: v1.29.4+k3s1
       ---
       apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
       kind: LinodeCluster
@@ -374,17 +323,26 @@ write_files:
             image: linode/ubuntu22.04
             region: {{ ds.meta_data.region }}
             type: g6-standard-4
-
+            authorizedKeys: ${AUTHORIZED_KEYS}
+  - path: /tmp/init-cluster.sh
+    content: |
+      #!/bin/bash
+      sed -i "s/127.0.0.1/${NB_IP}/" /etc/rancher/k3s/k3s.yaml
+      k3s kubectl create secret generic test-k3s-kubeconfig --type=cluster.x-k8s.io/secret --from-file=value=/etc/rancher/k3s/k3s.yaml --dry-run=client -oyaml > /var/lib/rancher/k3s/server/manifests/cluster-kubeconfig.yaml
+      k3s kubectl create secret generic test-k3s-ca --type=cluster.x-k8s.io/secret --from-file=tls.crt=/var/lib/rancher/k3s/server/tls/server-ca.crt --from-file=tls.key=/var/lib/rancher/k3s/server/tls/server-ca.key --dry-run=client -oyaml > /var/lib/rancher/k3s/server/manifests/cluster-ca.yaml
+      k3s kubectl create secret generic test-k3s-cca --type=cluster.x-k8s.io/secret --from-file=tls.crt=/var/lib/rancher/k3s/server/tls/client-ca.crt --from-file=tls.key=/var/lib/rancher/k3s/server/tls/client-ca.key --dry-run=client -oyaml > /var/lib/rancher/k3s/server/manifests/cluster-cca.yaml
+      k3s kubectl create secret generic test-k3s-token --type=cluster.x-k8s.io/secret --from-file=value=/var/lib/rancher/k3s/server/token --dry-run=client -oyaml > /var/lib/rancher/k3s/server/manifests/cluster-token.yaml
+      until k3s kubectl get secret test-k3s-ca test-k3s-cca test-k3s-kubeconfig test-k3s-token; do sleep 5; done
+      k3s kubectl label secret test-k3s-kubeconfig test-k3s-ca test-k3s-cca test-k3s-token "cluster.x-k8s.io/cluster-name"="test-k3s"
+      until k3s kubectl get kthreescontrolplane test-k3s-control-plane; do sleep 10; done
+      k3s kubectl patch machine capi-bootstrap --type=json -p "[{\"op\": \"add\", \"path\": \"/metadata/ownerReferences\", \"value\" : [{\"apiVersion\":\"controlplane.cluster.x-k8s.io/v1beta1\",\"blockOwnerDeletion\":true,\"controller\":true,\"kind\":\"KThreesControlPlane\",\"name\":\"test-k3s-control-plane\",\"uid\":\"$(k3s kubectl get KThreesControlPlane test-k3s-control-plane -ojsonpath='{.metadata.uid}')\"}]}]"
+      k3s kubectl patch cluster test-k3s --type=json -p '[{"op": "replace", "path": "/spec/controlPlaneRef/name", "value": "test-k3s-control-plane"}]'
 hostname: '{{ ds.meta_data.label }}'
 runcmd:
+  - |
+     echo "node-ip: $(hostname -I | grep -oE 192\.168\.[0-9]+\.[0-9]+)" >> /etc/rancher/k3s/config.yaml
   - curl -sfL https://get.k3s.io | sh -
-  - sed -i s/127.0.0.1/${NB_IP}/ /etc/rancher/k3s/k3s.yaml
-  - until k3s kubectl get nodes; do sleep 5; done
-  - k3s kubectl create secret generic test-k3s-kubeconfig --type=cluster.x-k8s.io/secret --from-file=value=/etc/rancher/k3s/k3s.yaml
-  - k3s kubectl create secret generic test-k3s-ca --type=cluster.x-k8s.io/secret --from-file=tls.crt=/var/lib/rancher/k3s/server/tls/server-ca.crt --from-file=tls.key=/var/lib/rancher/k3s/server/tls/server-ca.key
-  - k3s kubectl create secret generic test-k3s-cca --type=cluster.x-k8s.io/secret --from-file=tls.crt=/var/lib/rancher/k3s/server/tls/client-ca.crt --from-file=tls.key=/var/lib/rancher/k3s/server/tls/client-ca.key
-  - k3s kubectl label secret test-k3s-kubeconfig test-k3s-ca test-k3s-cca "cluster.x-k8s.io/cluster-name"="test-k3s"
   - curl -s -L https://github.com/derailed/k9s/releases/download/v0.32.4/k9s_Linux_amd64.tar.gz | tar -xvz -C /usr/local/bin k9s
   - echo "alias k=\"k3s kubectl\"" >> /root/.bashrc
   - echo "export KUBECONFIG=/etc/rancher/k3s/k3s.yaml" >> /root/.bashrc
-
+  - bash /tmp/init-cluster.sh
