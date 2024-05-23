@@ -35,3 +35,4 @@ terraform.rc
 .devbox
 .idea
 .envrc
+bin

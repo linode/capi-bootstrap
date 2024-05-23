@@ -45,10 +45,12 @@ var clusterOpts = &clusterOptions{}
 
 func init() {
 
-	clusterCmd.Flags().StringVar(&clusterOpts.kubernetesVersion, "kubernetes-version", "",
-		"The Kubernetes version to use for the workload cluster. If unspecified, the value from OS environment variables or the $XDG_CONFIG_HOME/cluster-api/clusterctl.yaml config file will be used.")
 	clusterCmd.Flags().StringVarP(&clusterOpts.manifest, "manifest", "m", "",
 		"The file containing cluster manifest to use for bootstrap cluster")
+
+	clusterCmd.Flags().StringVar(&clusterOpts.kubernetesVersion, "kubernetes-version", "",
+		"The Kubernetes version to use for the workload cluster. If unspecified, the value from OS environment variables or the $XDG_CONFIG_HOME/cluster-api/clusterctl.yaml config file will be used.")
+
 	clusterCmd.Flags().Int64Var(&clusterOpts.controlPlaneMachineCount, "control-plane-machine-count", 1,
 		"The number of control plane machines for the workload cluster.")
 	// Remove default from hard coded text if the default is ever changed from 0 since cobra would then add it
@@ -72,7 +74,7 @@ func init() {
 
 func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
-	clusterName := ""
+	clusterName := os.Getenv("CLUSTER_NAME")
 	if len(args) != 0 {
 		clusterName = args[0]
 	}
@@ -91,12 +93,20 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 	oauth2Client := oauth2.NewClient(ctx, tokenSource)
 
 	client := linodego.NewClient(oauth2Client)
-
+	existingNB, err := client.ListNodeBalancers(ctx, linodego.NewListOptions(1, "{\"tags\": \"test-k3s\"}"))
+	if err != nil {
+		log.Fatalf("failed to list existing NB nodes: %v", err)
+		return err
+	}
+	if len(existingNB) != 0 {
+		log.Fatalf("existing NodeBalancer found: %v", *existingNB[0].Label)
+		return err
+	}
 	// Create a NodeBalancer
 	nodeBalancer, err := client.CreateNodeBalancer(ctx, linodego.NodeBalancerCreateOptions{
-		Label:  ptr.To("capi-bootstrap"),
+		Label:  ptr.To("test-k3s"),
 		Region: region,
-		Tags:   []string{"capi-bootstrap"},
+		Tags:   []string{"test-k3s"},
 	})
 	if err != nil {
 		log.Fatalf("Error creating NodeBalancer: %v", err)
@@ -122,7 +132,14 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	sub := map[string]string{"LINODE_TOKEN": linodeToken, "AUTHORIZED_KEYS": "['" + authorizedKeys + "']", "NB_IP": *nodeBalancer.IPv4, "NB_ID": strconv.Itoa(nodeBalancer.ID), "NB_CONFIG_ID": strconv.Itoa(nodeBalancerConfig.ID)}
+	sub := map[string]string{
+		"LINODE_TOKEN":    linodeToken,
+		"AUTHORIZED_KEYS": "['" + authorizedKeys + "']",
+		"NB_IP":           *nodeBalancer.IPv4,
+		"NB_ID":           strconv.Itoa(nodeBalancer.ID),
+		"NB_CONFIG_ID":    strconv.Itoa(nodeBalancerConfig.ID),
+		"NB_PORT":         strconv.Itoa(nodeBalancerConfig.Port),
+	}
 	cloudInit, err := envsubst.Eval(string(b), func(s string) string {
 		return sub[s]
 	})
@@ -131,13 +148,13 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 	}
 	// Create a Linode Instance
 	instance, err := client.CreateInstance(ctx, linodego.InstanceCreateOptions{
-		Label:          "capi-bootstrap",
+		Label:          "test-k3s-bootstrap",
 		Image:          "linode/debian11",
 		Region:         region,
 		Type:           "g6-standard-6",
 		AuthorizedKeys: []string{authorizedKeys},
 		RootPass:       "AkamaiPass123@1",
-		Tags:           []string{"capi-bootstrap"},
+		Tags:           []string{"test-k3s"},
 		PrivateIP:      true,
 		Metadata:       &linodego.InstanceMetadataOptions{UserData: base64.StdEncoding.EncodeToString([]byte(cloudInit))},
 	})
@@ -158,7 +175,7 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 	// Create a NodeBalancer Node
 	node, err := client.CreateNodeBalancerNode(ctx, nodeBalancer.ID, nodeBalancerConfig.ID, linodego.NodeBalancerNodeCreateOptions{
 		Address: fmt.Sprintf("%s:6443", privateIP),
-		Label:   "test-k3s",
+		Label:   "test-k3s-bootstrap",
 		Weight:  100,
 	})
 	if err != nil {

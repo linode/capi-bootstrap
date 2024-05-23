@@ -131,10 +131,7 @@ write_files:
         name: linode
         namespace: capl-system
       spec:
-        deployment:
-          containers:
-            - imageUrl: docker.io/linode/cluster-api-provider-linode:main
-              name: manager
+        version: v0.3.0
         fetchConfig:
           url: https://github.com/linode/cluster-api-provider-linode/releases/latest/infrastructure-components.yaml
         configSecret:
@@ -200,7 +197,7 @@ write_files:
           cluster.x-k8s.io/cluster-name: test-k3s
           cluster.x-k8s.io/control-plane: ""
           cluster.x-k8s.io/control-plane-name: ""
-        name: capi-bootstrap
+        name: test-k3s-bootstrap
         namespace: default
       spec:
         bootstrap:
@@ -208,7 +205,7 @@ write_files:
         infrastructureRef:
           apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
           kind: LinodeMachine
-          name: capi-bootstrap
+          name: test-k3s-bootstrap
           namespace: default
         clusterName: test-k3s
         providerID: linode://{{ ds.meta_data.id }}
@@ -221,7 +218,7 @@ write_files:
           cluster.x-k8s.io/cluster-name: test-k3s
           cluster.x-k8s.io/control-plane: ""
           cluster.x-k8s.io/control-plane-name: ""
-        name: capi-bootstrap
+        name: test-k3s-bootstrap
         namespace: default
       spec:
         image: linode/ubuntu22.04
@@ -335,7 +332,7 @@ write_files:
       until k3s kubectl get secret test-k3s-ca test-k3s-cca test-k3s-kubeconfig test-k3s-token; do sleep 5; done
       k3s kubectl label secret test-k3s-kubeconfig test-k3s-ca test-k3s-cca test-k3s-token "cluster.x-k8s.io/cluster-name"="test-k3s"
       until k3s kubectl get kthreescontrolplane test-k3s-control-plane; do sleep 10; done
-      k3s kubectl patch machine capi-bootstrap --type=json -p "[{\"op\": \"add\", \"path\": \"/metadata/ownerReferences\", \"value\" : [{\"apiVersion\":\"controlplane.cluster.x-k8s.io/v1beta1\",\"blockOwnerDeletion\":true,\"controller\":true,\"kind\":\"KThreesControlPlane\",\"name\":\"test-k3s-control-plane\",\"uid\":\"$(k3s kubectl get KThreesControlPlane test-k3s-control-plane -ojsonpath='{.metadata.uid}')\"}]}]"
+      k3s kubectl patch machine test-k3s-bootstrap --type=json -p "[{\"op\": \"add\", \"path\": \"/metadata/ownerReferences\", \"value\" : [{\"apiVersion\":\"controlplane.cluster.x-k8s.io/v1beta1\",\"blockOwnerDeletion\":true,\"controller\":true,\"kind\":\"KThreesControlPlane\",\"name\":\"test-k3s-control-plane\",\"uid\":\"$(k3s kubectl get KThreesControlPlane test-k3s-control-plane -ojsonpath='{.metadata.uid}')\"}]}]"
       k3s kubectl patch cluster test-k3s --type=json -p '[{"op": "replace", "path": "/spec/controlPlaneRef/name", "value": "test-k3s-control-plane"}]'
 hostname: '{{ ds.meta_data.label }}'
 runcmd:
