@@ -1,10 +1,16 @@
 package cmd
 
 import (
+	"capi-bootstrap/pkg"
+	"context"
+	"encoding/json"
 	"errors"
-	"log"
-
+	"fmt"
+	"github.com/linode/linodego"
 	"github.com/spf13/cobra"
+	"k8s.io/utils/ptr"
+	"log"
+	"os"
 )
 
 // deleteCmd represents the delete command
@@ -29,20 +35,76 @@ to quickly create a Cobra application.`,
 }
 
 func init() {
+	deleteCmd.Flags().BoolP("force", "f", false,
+		"delete all resources created by this cluster without confirming")
 	rootCmd.AddCommand(deleteCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// deleteCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// deleteCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
-func runDeleteCluster(cmd *cobra.Command, name string) error {
-	log.Printf("Deleting cluster " + name)
+func runDeleteCluster(cmd *cobra.Command, clusterName string) error {
+	ctx := context.Background()
+	linodeToken := os.Getenv("LINODE_TOKEN")
+
+	if linodeToken == "" {
+		log.Fatal("linode_token is required")
+	}
+
+	client := pkg.LinodeClient(linodeToken, ctx)
+	ListFilter, err := json.Marshal(map[string]string{"tags": clusterName})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	instances, err := client.ListInstances(ctx, ptr.To(linodego.ListOptions{
+		Filter: string(ListFilter),
+	}))
+	if err != nil {
+		log.Fatalf("Could not list instances: %v", err)
+	}
+	if len(instances) > 0 {
+		cmd.Print("Deleting instances:\n")
+		for _, instance := range instances {
+			cmd.Printf("  Label: %s, ID: %d\n", instance.Label, instance.ID)
+		}
+	}
+	nodeBal, err := client.ListNodeBalancers(ctx, linodego.NewListOptions(1, string(ListFilter)))
+	if err != nil {
+		log.Fatalf("failed to list existing NodeBalancers: %v", err)
+		return err
+	}
+	switch len(nodeBal) {
+	case 1:
+		cmd.Print("Deleting NodeBalancer:\n")
+		cmd.Printf("  Label: %s, ID: %d\n", *nodeBal[0].Label, nodeBal[0].ID)
+
+	case 0:
+		cmd.Println("No NodeBalancers found for deletion")
+	default:
+		log.Fatalf("More than one NodeBalaner found for deletion, cannot delete")
+	}
+	cmd.Print("Would you like to delete these resources(y/n): ")
+	var confirm string
+	if !cmd.Flags().Changed("force") {
+		fmt.Scanln(&confirm)
+		if confirm != "y" && confirm != "yes" {
+			return nil
+		}
+	}
+
+	cmd.Println("Deleting resources:")
+
+	for _, instance := range instances {
+		if err := client.DeleteInstance(ctx, instance.ID); err != nil {
+			log.Fatalf("Could not delete instance %s: %v", instance.Label, err)
+		}
+		cmd.Printf("  Deleted Instance %s\n", instance.Label)
+	}
+
+	if len(nodeBal) == 1 {
+		if err := client.DeleteNodeBalancer(ctx, nodeBal[0].ID); err != nil {
+			log.Fatalf("Could not delete instance %s: %v", *nodeBal[0].Label, err)
+		}
+		cmd.Printf("  Deleted NodeBalancer %s\n", *nodeBal[0].Label)
+	}
+
 	return nil
 }

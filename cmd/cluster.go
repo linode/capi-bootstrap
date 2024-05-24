@@ -1,13 +1,14 @@
 package cmd
 
 import (
+	"capi-bootstrap/pkg"
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"github.com/drone/envsubst"
 	"github.com/linode/linodego"
 	"github.com/spf13/cobra"
-	"golang.org/x/oauth2"
 	"k8s.io/utils/ptr"
 	"log"
 	"os"
@@ -88,12 +89,12 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 		log.Fatal("linode_token is required")
 	}
 
-	// Set up OAuth2 authentication for Linode API
-	tokenSource := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: linodeToken})
-	oauth2Client := oauth2.NewClient(ctx, tokenSource)
-
-	client := linodego.NewClient(oauth2Client)
-	existingNB, err := client.ListNodeBalancers(ctx, linodego.NewListOptions(1, "{\"tags\": \"test-k3s\"}"))
+	client := pkg.LinodeClient(linodeToken, ctx)
+	nbListFilter, err := json.Marshal(map[string]string{"tags": "test-k3s"})
+	if err != nil {
+		log.Fatal(err)
+	}
+	existingNB, err := client.ListNodeBalancers(ctx, linodego.NewListOptions(1, string(nbListFilter)))
 	if err != nil {
 		log.Fatalf("failed to list existing NB nodes: %v", err)
 		return err
