@@ -6,13 +6,13 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 
 	"github.com/drone/envsubst"
 	"github.com/linode/linodego"
 	"github.com/spf13/cobra"
+	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 )
 
@@ -80,28 +80,28 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 	if len(args) != 0 {
 		clusterName = args[0]
 	}
-	log.Printf("cluster name: %s", clusterName)
+	klog.Infof("cluster name: %s", clusterName)
 	// Define command-line flags for the input variables
 	linodeToken := os.Getenv("LINODE_TOKEN")
 	authorizedKeys := os.Getenv("AUTHORIZED_KEYS")
 	region := os.Getenv("LINODE_REGION")
 
 	if linodeToken == "" {
-		log.Fatal("linode_token is required")
+		klog.Fatal("linode_token is required")
 	}
 
 	client := pkg.LinodeClient(linodeToken, ctx)
 	nbListFilter, err := json.Marshal(map[string]string{"tags": "test-k3s"})
 	if err != nil {
-		log.Fatal(err)
+		klog.Fatal(err)
 	}
 	existingNB, err := client.ListNodeBalancers(ctx, linodego.NewListOptions(1, string(nbListFilter)))
 	if err != nil {
-		log.Fatalf("failed to list existing NB nodes: %v", err)
+		klog.Fatalf("failed to list existing NB nodes: %v", err)
 		return err
 	}
 	if len(existingNB) != 0 {
-		log.Fatalf("existing NodeBalancer found: %v", *existingNB[0].Label)
+		klog.Fatalf("existing NodeBalancer found: %v", *existingNB[0].Label)
 		return err
 	}
 	// Create a NodeBalancer
@@ -111,7 +111,7 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 		Tags:   []string{"test-k3s"},
 	})
 	if err != nil {
-		log.Fatalf("Error creating NodeBalancer: %v", err)
+		klog.Fatalf("Error creating NodeBalancer: %v", err)
 		return err
 	}
 	fmt.Printf("Created NodeBalancer: %v\n", *nodeBalancer.Label)
@@ -124,7 +124,7 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 		Check:     "connection",
 	})
 	if err != nil {
-		log.Fatalf("Error creating NodeBalancer Config: %v", err)
+		klog.Fatalf("Error creating NodeBalancer Config: %v", err)
 		return err
 	}
 
@@ -146,7 +146,7 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 		return sub[s]
 	})
 	if err != nil {
-		log.Fatal(err)
+		klog.Fatal(err)
 	}
 	// Create a Linode Instance
 	instance, err := client.CreateInstance(ctx, linodego.InstanceCreateOptions{
@@ -161,7 +161,7 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 		Metadata:       &linodego.InstanceMetadataOptions{UserData: base64.StdEncoding.EncodeToString([]byte(cloudInit))},
 	})
 	if err != nil {
-		log.Fatalf("Error creating Linode Instance: %v", err)
+		klog.Fatalf("Error creating Linode Instance: %v", err)
 		return err
 	}
 	fmt.Printf("Created Linode Instance: %v\n", instance.Label)
@@ -181,7 +181,7 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 		Weight:  100,
 	})
 	if err != nil {
-		log.Fatalf("Error creating NodeBalancer Node: %v", err)
+		klog.Fatalf("Error creating NodeBalancer Node: %v", err)
 		return err
 	}
 	fmt.Printf("Created NodeBalancer Node: %v\n", node.Label)

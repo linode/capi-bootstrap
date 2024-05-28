@@ -10,10 +10,12 @@ require (
 	github.com/spf13/cobra v1.8.0
 	golang.org/x/crypto v0.22.0
 	golang.org/x/oauth2 v0.20.0
+	k8s.io/klog/v2 v2.120.1
 	k8s.io/utils v0.0.0-20240502163921-fe8a2dddb1d0
 )
 
 require (
+	github.com/go-logr/logr v1.4.1 // indirect
 	github.com/go-resty/resty/v2 v2.12.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect

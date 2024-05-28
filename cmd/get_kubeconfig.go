@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"os"
 
@@ -18,6 +17,7 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
+	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 )
 
@@ -61,22 +61,22 @@ func getKubeconfigDirect(clusterName string) error {
 	linodeToken := os.Getenv("LINODE_TOKEN")
 
 	if linodeToken == "" {
-		log.Fatal("linode_token is required")
+		klog.Fatal("linode_token is required")
 	}
 
 	linClient := pkg.LinodeClient(linodeToken, ctx)
 	instanceListFilter, err := json.Marshal(map[string]string{"tags": clusterName})
 	if err != nil {
-		log.Fatal(err)
+		klog.Fatal(err)
 	}
 	instances, err := linClient.ListInstances(ctx, ptr.To(linodego.ListOptions{
 		Filter: string(instanceListFilter),
 	}))
 	if err != nil {
-		log.Fatalf("Could not list instances: %v", err)
+		klog.Fatalf("Could not list instances: %v", err)
 	}
 	if len(instances) == 0 {
-		log.Fatalf("Could not find a Linode instance with tag %s", clusterName)
+		klog.Fatalf("Could not find a Linode instance with tag %s", clusterName)
 	}
 
 	var serverIP string
@@ -90,13 +90,13 @@ func getKubeconfigDirect(clusterName string) error {
 
 	sshAuthSock := os.Getenv("SSH_AUTH_SOCK")
 	if sshAuthSock == "" {
-		log.Fatalf("SSH_AUTH_SOCK is not set, ensure you ahve a running ssh agent before trying to download kubeconfig directly from a machine")
+		klog.Fatalf("SSH_AUTH_SOCK is not set, ensure you ahve a running ssh agent before trying to download kubeconfig directly from a machine")
 	}
 
 	// Connect to the SSH agent.
 	conn, err := net.Dial("unix", sshAuthSock)
 	if err != nil {
-		log.Fatalf("failed to connect to SSH agent: %v", err)
+		klog.Fatalf("failed to connect to SSH agent: %v", err)
 		return err
 	}
 	defer conn.Close()
@@ -117,14 +117,14 @@ func getKubeconfigDirect(clusterName string) error {
 	// Establish the SSH connection.
 	client, err := ssh.Dial("tcp", server, config)
 	if err != nil {
-		log.Fatalf("failed to dial: %v", err)
+		klog.Fatalf("failed to dial: %v", err)
 	}
 	defer client.Close()
 
 	// Create a new session.
 	session, err := client.NewSession()
 	if err != nil {
-		log.Fatalf("failed to create session: %v", err)
+		klog.Fatalf("failed to create session: %v", err)
 	}
 	defer session.Close()
 
@@ -142,13 +142,13 @@ func getKubeconfigDirect(clusterName string) error {
 func getKubeconfig(session *ssh.Session) (string, error) {
 	output, err := session.Output("k3s kubectl get secret test-k3s-kubeconfig -ojsonpath='{.data.value}'")
 	if err != nil {
-		log.Fatalf("failed to get kubeconfig: %v", err)
+		klog.Fatalf("failed to get kubeconfig: %v", err)
 		return "", err
 	}
 
 	kubeconfig, err := base64.StdEncoding.DecodeString(string(output))
 	if err != nil {
-		log.Fatal("error:", err)
+		klog.Fatal("error:", err)
 	}
 	return string(kubeconfig), nil
 }
