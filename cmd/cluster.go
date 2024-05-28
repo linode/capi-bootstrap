@@ -114,7 +114,7 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 		klog.Fatalf("Error creating NodeBalancer: %v", err)
 		return err
 	}
-	fmt.Printf("Created NodeBalancer: %v\n", *nodeBalancer.Label)
+	klog.Infof("Created NodeBalancer: %v\n", *nodeBalancer.Label)
 
 	// Create a NodeBalancer Config
 	nodeBalancerConfig, err := client.CreateNodeBalancerConfig(ctx, nodeBalancer.ID, linodego.NodeBalancerConfigCreateOptions{
@@ -130,7 +130,6 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 
 	b, err := os.ReadFile("cloud-config.yaml")
 	if err != nil {
-		fmt.Print(err)
 		return err
 	}
 
@@ -164,7 +163,7 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 		klog.Fatalf("Error creating Linode Instance: %v", err)
 		return err
 	}
-	fmt.Printf("Created Linode Instance: %v\n", instance.Label)
+	klog.Infof("Created Linode Instance: %v\n", instance.Label)
 
 	var privateIP string
 
@@ -184,9 +183,9 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 		klog.Fatalf("Error creating NodeBalancer Node: %v", err)
 		return err
 	}
-	fmt.Printf("Created NodeBalancer Node: %v\n", node.Label)
+	klog.Infof("Created NodeBalancer Node: %v\n", node.Label)
 
-	fmt.Printf("SSH: ssh root@%s\n", instance.IPv4[0].String())
-	fmt.Printf("API Server: https://%s:6443\n", privateIP)
+	klog.Infof("SSH: ssh root@%s\n", instance.IPv4[0].String())
+	klog.Infof("API Server: https://%s:6443\n", privateIP)
 	return nil
 }

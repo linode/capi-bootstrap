@@ -9,7 +9,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net"
 	"os"
 
@@ -134,7 +133,7 @@ func getKubeconfigDirect(clusterName string) error {
 	}
 
 	// Print kubeconfig
-	fmt.Println(kubeconfig)
+	klog.Info(kubeconfig)
 
 	return nil
 }
