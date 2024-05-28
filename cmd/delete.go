@@ -6,11 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
+	"os"
+
 	"github.com/linode/linodego"
 	"github.com/spf13/cobra"
 	"k8s.io/utils/ptr"
-	"log"
-	"os"
 )
 
 // deleteCmd represents the delete command

@@ -6,13 +6,14 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"log"
+	"os"
+	"strconv"
+
 	"github.com/drone/envsubst"
 	"github.com/linode/linodego"
 	"github.com/spf13/cobra"
 	"k8s.io/utils/ptr"
-	"log"
-	"os"
-	"strconv"
 )
 
 // clusterCmd represents the cluster command

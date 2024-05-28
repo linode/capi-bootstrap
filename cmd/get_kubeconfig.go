@@ -10,14 +10,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
+	"net"
+	"os"
+
 	"github.com/linode/linodego"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
 	"k8s.io/utils/ptr"
-	"log"
-	"net"
-	"os"
 )
 
 // kubeconfigCmd represents the kubeconfig command
