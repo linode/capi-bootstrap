@@ -161,6 +161,7 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+
 	klog.Infof("Created Linode Instance: %v\n", instance.Label)
 
 	var privateIP string
