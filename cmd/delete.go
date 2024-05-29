@@ -46,65 +46,68 @@ func runDeleteCluster(cmd *cobra.Command, clusterName string) error {
 	linodeToken := os.Getenv("LINODE_TOKEN")
 
 	if linodeToken == "" {
-		klog.Fatal("linode_token is required")
+		return errors.New("linode_token is required")
 	}
 
 	client := pkg.LinodeClient(linodeToken, ctx)
 	ListFilter, err := json.Marshal(map[string]string{"tags": clusterName})
 	if err != nil {
-		klog.Fatal(err)
+		return err
 	}
 
 	instances, err := client.ListInstances(ctx, ptr.To(linodego.ListOptions{
 		Filter: string(ListFilter),
 	}))
+
 	if err != nil {
-		klog.Fatalf("Could not list instances: %v", err)
+		return fmt.Errorf("Could not list instances: %v", err)
 	}
+
 	if len(instances) > 0 {
-		cmd.Print("Deleting instances:\n")
+		klog.Info("Deleting instances:\n")
 		for _, instance := range instances {
-			cmd.Printf("  Label: %s, ID: %d\n", instance.Label, instance.ID)
+			klog.Infof("  Label: %s, ID: %d\n", instance.Label, instance.ID)
 		}
 	}
 	nodeBal, err := client.ListNodeBalancers(ctx, linodego.NewListOptions(1, string(ListFilter)))
 	if err != nil {
-		klog.Fatalf("failed to list existing NodeBalancers: %v", err)
 		return err
 	}
 	switch len(nodeBal) {
 	case 1:
-		cmd.Print("Deleting NodeBalancer:\n")
-		cmd.Printf("  Label: %s, ID: %d\n", *nodeBal[0].Label, nodeBal[0].ID)
+		klog.Infof("Deleting NodeBalancer:\n")
+		klog.Infof("  Label: %s, ID: %d\n", *nodeBal[0].Label, nodeBal[0].ID)
 
 	case 0:
-		cmd.Println("No NodeBalancers found for deletion")
+		klog.Infof("No NodeBalancers found for deletion")
 	default:
 		klog.Fatalf("More than one NodeBalaner found for deletion, cannot delete")
 	}
-	cmd.Print("Would you like to delete these resources(y/n): ")
+	klog.Info("Would you like to delete these resources(y/n): ")
 	var confirm string
 	if !cmd.Flags().Changed("force") {
-		fmt.Scanln(&confirm)
+		if _, err := fmt.Scanln(&confirm); err != nil {
+			return errors.New("error trying to read user input")
+		}
 		if confirm != "y" && confirm != "yes" {
 			return nil
 		}
 	}
 
-	cmd.Println("Deleting resources:")
+	klog.Info("Deleting resources:")
 
 	for _, instance := range instances {
 		if err := client.DeleteInstance(ctx, instance.ID); err != nil {
-			klog.Fatalf("Could not delete instance %s: %v", instance.Label, err)
+			return fmt.Errorf("Could not delete instance %s: %v", instance.Label, err)
 		}
-		cmd.Printf("  Deleted Instance %s\n", instance.Label)
+		klog.Infof("  Deleted Instance %s\n", instance.Label)
 	}
 
 	if len(nodeBal) == 1 {
 		if err := client.DeleteNodeBalancer(ctx, nodeBal[0].ID); err != nil {
-			klog.Fatalf("Could not delete instance %s: %v", *nodeBal[0].Label, err)
+			return fmt.Errorf("Could not delete instance %s: %v", *nodeBal[0].Label, err)
 		}
-		cmd.Printf("  Deleted NodeBalancer %s\n", *nodeBal[0].Label)
+		klog.Infof("  Deleted NodeBalancer %s\n", *nodeBal[0].Label)
 	}
 
 	return nil

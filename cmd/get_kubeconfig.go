@@ -74,6 +74,7 @@ func getKubeconfigDirect(clusterName string) error {
 	if err != nil {
 		klog.Fatalf("Could not list instances: %v", err)
 	}
+
 	if len(instances) == 0 {
 		klog.Fatalf("Could not find a Linode instance with tag %s", clusterName)
 	}
