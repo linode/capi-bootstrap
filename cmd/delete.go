@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"capi-bootstrap/pkg"
+	"capi-bootstrap/client"
 	"context"
 	"encoding/json"
 	"errors"
@@ -49,13 +49,13 @@ func runDeleteCluster(cmd *cobra.Command, clusterName string) error {
 		return errors.New("linode_token is required")
 	}
 
-	client := pkg.LinodeClient(linodeToken, ctx)
+	linclient := client.LinodeClient(linodeToken, ctx)
 	ListFilter, err := json.Marshal(map[string]string{"tags": clusterName})
 	if err != nil {
 		return err
 	}
 
-	instances, err := client.ListInstances(ctx, ptr.To(linodego.ListOptions{
+	instances, err := linclient.ListInstances(ctx, ptr.To(linodego.ListOptions{
 		Filter: string(ListFilter),
 	}))
 
@@ -69,7 +69,7 @@ func runDeleteCluster(cmd *cobra.Command, clusterName string) error {
 			klog.Infof("  Label: %s, ID: %d\n", instance.Label, instance.ID)
 		}
 	}
-	nodeBal, err := client.ListNodeBalancers(ctx, linodego.NewListOptions(1, string(ListFilter)))
+	nodeBal, err := linclient.ListNodeBalancers(ctx, linodego.NewListOptions(1, string(ListFilter)))
 	if err != nil {
 		return err
 	}
@@ -97,14 +97,14 @@ func runDeleteCluster(cmd *cobra.Command, clusterName string) error {
 	klog.Info("Deleting resources:")
 
 	for _, instance := range instances {
-		if err := client.DeleteInstance(ctx, instance.ID); err != nil {
+		if err := linclient.DeleteInstance(ctx, instance.ID); err != nil {
 			return fmt.Errorf("Could not delete instance %s: %v", instance.Label, err)
 		}
 		klog.Infof("  Deleted Instance %s\n", instance.Label)
 	}
 
 	if len(nodeBal) == 1 {
-		if err := client.DeleteNodeBalancer(ctx, nodeBal[0].ID); err != nil {
+		if err := linclient.DeleteNodeBalancer(ctx, nodeBal[0].ID); err != nil {
 			return fmt.Errorf("Could not delete instance %s: %v", *nodeBal[0].Label, err)
 		}
 		klog.Infof("  Deleted NodeBalancer %s\n", *nodeBal[0].Label)
