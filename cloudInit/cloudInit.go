@@ -398,7 +398,7 @@ spec:
       disableComponents:
       - servicelb
       - traefik
-  replicas: 1
+  replicas: 3
   version: v1.29.4+k3s1
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
