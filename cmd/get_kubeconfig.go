@@ -4,7 +4,7 @@ Copyright © 2024 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
-	"capi-bootstrap/pkg"
+	"capi-bootstrap/client"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -79,7 +79,7 @@ func getKubeconfigDirect(cmd *cobra.Command, clusterName string) (string, error)
 		return "", errors.New("linode_token is required")
 	}
 
-	linClient := pkg.LinodeClient(linodeToken, cmd.Context())
+	linClient := client.LinodeClient(linodeToken, cmd.Context())
 	instanceListFilter, err := json.Marshal(map[string]string{"tags": clusterName})
 	if err != nil {
 		return "", err
@@ -130,12 +130,12 @@ func getKubeconfigDirect(cmd *cobra.Command, clusterName string) (string, error)
 	}
 
 	// build an ssh client with the right connection params
-	var client *sshclient.Client
+	var sClient *sshclient.Client
 	defer func() {
-		if client == nil {
+		if sClient == nil {
 			return
 		}
-		err := client.Close()
+		err := sClient.Close()
 		if err != nil {
 			klog.Errorf("Error closing ssh connection: %v", err)
 		}
@@ -152,7 +152,7 @@ func getKubeconfigDirect(cmd *cobra.Command, clusterName string) (string, error)
 		}
 
 		klog.Infof("Connecting by SSH to %s using identify file %s and username %s", server, idfile, username)
-		client, err = sshclient.DialWithKey(server, username, idfile)
+		sClient, err = sshclient.DialWithKey(server, username, idfile)
 		if err != nil {
 			return "", err
 		}
@@ -160,13 +160,13 @@ func getKubeconfigDirect(cmd *cobra.Command, clusterName string) (string, error)
 		// a key was passed, need to decide if we need to dial with a password
 		if cmd.Flags().Changed("password") {
 			klog.Infof("Connecting by SSH to %s using identify file %s with username %s and a password", server, username, idfile)
-			client, err = sshclient.DialWithKeyWithPassphrase(server, username, idfile, password)
+			sClient, err = sshclient.DialWithKeyWithPassphrase(server, username, idfile, password)
 			if err != nil {
 				return "", err
 			}
 		} else {
 			klog.Infof("Connecting by SSH to %s using identify file %s and username %s", server, idfile, username)
-			client, err = sshclient.DialWithKey(server, username, idfile)
+			sClient, err = sshclient.DialWithKey(server, username, idfile)
 			if err != nil {
 				return "", err
 			}
@@ -174,14 +174,14 @@ func getKubeconfigDirect(cmd *cobra.Command, clusterName string) (string, error)
 	} else if cmd.Flags().Changed("password") {
 		// a password was added and no key was passed so connect with un/pass
 		klog.Infof("Connecting by SSH to %s using username %s with a password", server, username)
-		client, err = sshclient.DialWithPasswd(server, username, password)
+		sClient, err = sshclient.DialWithPasswd(server, username, password)
 		if err != nil {
 			return "", err
 		}
 	}
 
 	// TODO switch on cluster distro
-	return getKubeconfigK3s(client)
+	return getKubeconfigK3s(sClient)
 }
 
 func getKubeconfigK3s(session *sshclient.Client) (string, error) {
