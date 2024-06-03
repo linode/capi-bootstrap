@@ -60,11 +60,11 @@ func runDeleteCluster(cmd *cobra.Command, clusterName string) error {
 	}))
 
 	if err != nil {
-		return fmt.Errorf("Could not list instances: %v", err)
+		return fmt.Errorf("could not list instances: %v", err)
 	}
 
 	if len(instances) > 0 {
-		klog.Info("Deleting instances:\n")
+		klog.Info("Will delete instances:\n")
 		for _, instance := range instances {
 			klog.Infof("  Label: %s, ID: %d\n", instance.Label, instance.ID)
 		}
@@ -75,7 +75,7 @@ func runDeleteCluster(cmd *cobra.Command, clusterName string) error {
 	}
 	switch len(nodeBal) {
 	case 1:
-		klog.Infof("Deleting NodeBalancer:\n")
+		klog.Infof("Will delete NodeBalancer:\n")
 		klog.Infof("  Label: %s, ID: %d\n", *nodeBal[0].Label, nodeBal[0].ID)
 
 	case 0:
@@ -83,9 +83,9 @@ func runDeleteCluster(cmd *cobra.Command, clusterName string) error {
 	default:
 		klog.Fatalf("More than one NodeBalaner found for deletion, cannot delete")
 	}
-	klog.Info("Would you like to delete these resources(y/n): ")
 	var confirm string
 	if !cmd.Flags().Changed("force") {
+		klog.Info("Would you like to delete these resources(y/n): ")
 		if _, err := fmt.Scanln(&confirm); err != nil {
 			return errors.New("error trying to read user input")
 		}

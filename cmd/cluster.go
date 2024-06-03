@@ -15,7 +15,6 @@ import (
 	"github.com/linode/linodego"
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/ptr"
 )
 
 // clusterCmd represents the cluster command
@@ -78,11 +77,16 @@ func init() {
 
 func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
-	clusterName := os.Getenv("CLUSTER_NAME")
+	var clusterName string
+	if os.Getenv("CLUSTER_NAME") != "" {
+		clusterName = os.Getenv("CLUSTER_NAME")
+	}
 	if len(args) != 0 {
 		clusterName = args[0]
 	}
-
+	if clusterName == "" {
+		return errors.New("cluster name is required")
+	}
 	klog.Infof("cluster name: %s", clusterName)
 	// Define command-line flags for the input variables
 	linodeToken := os.Getenv("LINODE_TOKEN")
@@ -94,7 +98,7 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 	}
 
 	linclient := client.LinodeClient(linodeToken, ctx)
-	nbListFilter, err := json.Marshal(map[string]string{"tags": "test-k3s"})
+	nbListFilter, err := json.Marshal(map[string]string{"tags": clusterName})
 	if err != nil {
 		return err
 	}
@@ -107,9 +111,9 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 	}
 	// Create a NodeBalancer
 	nodeBalancer, err := linclient.CreateNodeBalancer(ctx, linodego.NodeBalancerCreateOptions{
-		Label:  ptr.To("test-k3s"),
+		Label:  &clusterName,
 		Region: region,
-		Tags:   []string{"test-k3s"},
+		Tags:   []string{clusterName},
 	})
 	if err != nil {
 		return err
@@ -127,7 +131,7 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	config, err := cloudInit.GenerateCloudInit()
+	config, err := cloudInit.GenerateCloudInit(clusterName)
 	if err != nil {
 		return err
 	}
@@ -149,13 +153,13 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 
 	// Create a Linode Instance
 	instance, err := linclient.CreateInstance(ctx, linodego.InstanceCreateOptions{
-		Label:          "test-k3s-bootstrap",
+		Label:          clusterName + "-bootstrap",
 		Image:          "linode/debian11",
 		Region:         region,
 		Type:           "g6-standard-6",
 		AuthorizedKeys: []string{authorizedKeys},
 		RootPass:       "AkamaiPass123@1",
-		Tags:           []string{"test-k3s"},
+		Tags:           []string{clusterName},
 		PrivateIP:      true,
 		Metadata:       &linodego.InstanceMetadataOptions{UserData: base64.StdEncoding.EncodeToString([]byte(cloudConfig))},
 	})
@@ -176,7 +180,7 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 	// Create a NodeBalancer Node
 	node, err := linclient.CreateNodeBalancerNode(ctx, nodeBalancer.ID, nodeBalancerConfig.ID, linodego.NodeBalancerNodeCreateOptions{
 		Address: fmt.Sprintf("%s:6443", privateIP),
-		Label:   "test-k3s-bootstrap",
+		Label:   clusterName + "-bootstrap",
 		Weight:  100,
 	})
 	if err != nil {
@@ -184,7 +188,6 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 	}
 
 	klog.Infof("Created NodeBalancer Node: %v\n", node.Label)
-	klog.Infof("SSH: ssh root@%s\n", instance.IPv4[0].String())
-	klog.Infof("API Server: https://%s:6443\n", privateIP)
+	klog.Infof("Bootstrap Node IP: %s\n", instance.IPv4[0].String())
 	return nil
 }
