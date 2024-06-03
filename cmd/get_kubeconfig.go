@@ -68,7 +68,7 @@ func runGetKubeconfig(cmd *cobra.Command, clusterName string) error {
 		return err
 	}
 
-	cmd.Println(kconf)
+	fmt.Println(kconf)
 	return nil
 }
 
@@ -159,7 +159,7 @@ func getKubeconfigDirect(cmd *cobra.Command, clusterName string) (string, error)
 	} else if cmd.Flags().Changed("identity-file") {
 		// a key was passed, need to decide if we need to dial with a password
 		if cmd.Flags().Changed("password") {
-			klog.Infof("Connecting by SSH to %s using identify file %s with username %s and a password", server, username, idfile)
+			klog.Infof("Connecting by SSH to %s using identify file %s with username %s and a password", server, idfile, username)
 			sClient, err = sshclient.DialWithKeyWithPassphrase(server, username, idfile, password)
 			if err != nil {
 				return "", err
@@ -181,11 +181,11 @@ func getKubeconfigDirect(cmd *cobra.Command, clusterName string) (string, error)
 	}
 
 	// TODO switch on cluster distro
-	return getKubeconfigK3s(sClient)
+	return getKubeconfigK3s(sClient, clusterName)
 }
 
-func getKubeconfigK3s(session *sshclient.Client) (string, error) {
-	output, err := session.Cmd("k3s kubectl get secret test-k3s-kubeconfig -ojsonpath='{.data.value}'").Output()
+func getKubeconfigK3s(session *sshclient.Client, clusterName string) (string, error) {
+	output, err := session.Cmd(fmt.Sprintf("k3s kubectl get secret %s-kubeconfig -ojsonpath='{.data.value}'", clusterName)).Output()
 	if err != nil {
 		return "", err
 	}
