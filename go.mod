@@ -5,7 +5,7 @@ go 1.22
 toolchain go1.22.2
 
 require (
-	github.com/drone/envsubst v1.0.3
+	github.com/google/uuid v1.6.0
 	github.com/helloyi/go-sshclient v1.2.0
 	github.com/linode/linodego v1.34.0
 	github.com/spf13/cobra v1.8.0

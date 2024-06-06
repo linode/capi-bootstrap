@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"bytes"
 	"capi-bootstrap/client"
 	"capi-bootstrap/cloudInit"
+	yamlParse "capi-bootstrap/yaml"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -11,9 +13,11 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/drone/envsubst"
+	"github.com/google/uuid"
+
 	"github.com/linode/linodego"
 	"github.com/spf13/cobra"
+	"gopkg.in/yaml.v3"
 	"k8s.io/klog/v2"
 )
 
@@ -78,6 +82,7 @@ func init() {
 func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
 	var clusterName string
+
 	if os.Getenv("CLUSTER_NAME") != "" {
 		clusterName = os.Getenv("CLUSTER_NAME")
 	}
@@ -87,22 +92,45 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 	if clusterName == "" {
 		return errors.New("cluster name is required")
 	}
+	sub := map[string]string{
+		"cluster_name": clusterName,
+	}
 	klog.Infof("cluster name: %s", clusterName)
+	yamlManifest, _ := cloudInit.GenerateCapiManifests(sub)
+
+	dec := yaml.NewDecoder(bytes.NewReader([]byte(yamlManifest.Content)))
+
+	clusterSpec := yamlParse.GetClusterDef(dec)
+	if clusterSpec == nil {
+		return errors.New("cluster not found")
+	}
+	controlPlaneSpec := yamlParse.GetControlPlaneDef(dec, clusterSpec.Spec.ControlPlaneRef.Kind)
+	if controlPlaneSpec == nil {
+		return errors.New("control plane not found")
+	}
+	manifestMachine := yamlParse.GetMachineDef(dec, controlPlaneSpec.Spec.InfrastructureTemplate.Kind)
+	if manifestMachine == nil {
+		return errors.New("machine not found")
+	}
+
+	region := manifestMachine.Spec.Template.Spec.Region
+	image := manifestMachine.Spec.Template.Spec.Image
+	imageType := manifestMachine.Spec.Template.Spec.Type
+
 	// Define command-line flags for the input variables
 	linodeToken := os.Getenv("LINODE_TOKEN")
 	authorizedKeys := os.Getenv("AUTHORIZED_KEYS")
-	region := os.Getenv("LINODE_REGION")
 
 	if linodeToken == "" {
 		return errors.New("linode_token is required")
 	}
 
-	linclient := client.LinodeClient(linodeToken, ctx)
+	linClient := client.LinodeClient(linodeToken, ctx)
 	nbListFilter, err := json.Marshal(map[string]string{"tags": clusterName})
 	if err != nil {
 		return err
 	}
-	existingNB, err := linclient.ListNodeBalancers(ctx, linodego.NewListOptions(1, string(nbListFilter)))
+	existingNB, err := linClient.ListNodeBalancers(ctx, linodego.NewListOptions(1, string(nbListFilter)))
 	if err != nil {
 		return err
 	}
@@ -110,7 +138,7 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	// Create a NodeBalancer
-	nodeBalancer, err := linclient.CreateNodeBalancer(ctx, linodego.NodeBalancerCreateOptions{
+	nodeBalancer, err := linClient.CreateNodeBalancer(ctx, linodego.NodeBalancerCreateOptions{
 		Label:  &clusterName,
 		Region: region,
 		Tags:   []string{clusterName},
@@ -121,7 +149,7 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 	klog.Infof("Created NodeBalancer: %v\n", *nodeBalancer.Label)
 
 	// Create a NodeBalancer Config
-	nodeBalancerConfig, err := linclient.CreateNodeBalancerConfig(ctx, nodeBalancer.ID, linodego.NodeBalancerConfigCreateOptions{
+	nodeBalancerConfig, err := linClient.CreateNodeBalancerConfig(ctx, nodeBalancer.ID, linodego.NodeBalancerConfigCreateOptions{
 		Port:      6443,
 		Protocol:  "tcp",
 		Algorithm: "roundrobin",
@@ -131,34 +159,30 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	config, err := cloudInit.GenerateCloudInit(clusterName)
-	if err != nil {
-		return err
+	sub = map[string]string{
+		"cluster_name":           clusterName,
+		"linode_token":           linodeToken,
+		"linode_authorized_keys": authorizedKeys,
+		"linode_lb_ip":           *nodeBalancer.IPv4,
+		"linode_nb_id":           strconv.Itoa(nodeBalancer.ID),
+		"linode_nb_config_id":    strconv.Itoa(nodeBalancerConfig.ID),
+		"linode_lb_port":         strconv.Itoa(nodeBalancerConfig.Port),
+		"k8s_version":            controlPlaneSpec.Spec.Version,
 	}
-
-	sub := map[string]string{
-		"LINODE_TOKEN":    linodeToken,
-		"AUTHORIZED_KEYS": "['" + authorizedKeys + "']",
-		"NB_IP":           *nodeBalancer.IPv4,
-		"NB_ID":           strconv.Itoa(nodeBalancer.ID),
-		"NB_CONFIG_ID":    strconv.Itoa(nodeBalancerConfig.ID),
-		"NB_PORT":         strconv.Itoa(nodeBalancerConfig.Port),
-	}
-	cloudConfig, err := envsubst.Eval(config, func(s string) string {
-		return sub[s]
-	})
+	klog.Infof("k8s version : %s", controlPlaneSpec.Spec.Version)
+	cloudConfig, err := cloudInit.GenerateCloudInit(sub, true)
 	if err != nil {
 		return err
 	}
 
 	// Create a Linode Instance
-	instance, err := linclient.CreateInstance(ctx, linodego.InstanceCreateOptions{
+	instance, err := linClient.CreateInstance(ctx, linodego.InstanceCreateOptions{
 		Label:          clusterName + "-bootstrap",
-		Image:          "linode/debian11",
+		Image:          image,
 		Region:         region,
-		Type:           "g6-standard-6",
+		Type:           imageType,
 		AuthorizedKeys: []string{authorizedKeys},
-		RootPass:       "AkamaiPass123@1",
+		RootPass:       uuid.NewString(),
 		Tags:           []string{clusterName},
 		PrivateIP:      true,
 		Metadata:       &linodego.InstanceMetadataOptions{UserData: base64.StdEncoding.EncodeToString([]byte(cloudConfig))},
@@ -178,7 +202,7 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 	}
 
 	// Create a NodeBalancer Node
-	node, err := linclient.CreateNodeBalancerNode(ctx, nodeBalancer.ID, nodeBalancerConfig.ID, linodego.NodeBalancerNodeCreateOptions{
+	node, err := linClient.CreateNodeBalancerNode(ctx, nodeBalancer.ID, nodeBalancerConfig.ID, linodego.NodeBalancerNodeCreateOptions{
 		Address: fmt.Sprintf("%s:6443", privateIP),
 		Label:   clusterName + "-bootstrap",
 		Weight:  100,
