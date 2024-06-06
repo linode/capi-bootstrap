@@ -1,0 +1,15 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.10.7/.schema/devbox.schema.json",
+  "packages": [
+    "golangci-lint@latest",
+    "clusterctl@latest",
+    "go@1.22.2",
+    "kubectl@latest"
+  ],
+  "shell": {
+    "init_hook": [
+      "export PATH=$PATH:./bin/"
+    ],
+    "scripts": {}
+  }
+}
