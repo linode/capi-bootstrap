@@ -19,7 +19,7 @@ type LinodeSubstitutions struct {
 	NodeBalancerIP       string
 	NodeBalancerID       int
 	NodeBalancerConfigID int
-	ApiServerPort        int
+	APIServerPort        int
 }
 type Substitutions struct {
 	ClusterName string

@@ -45,25 +45,24 @@ func GetClusterDef(manifests []string) *capi.Cluster {
 	return nil
 }
 
-func UpdateManifest(yamlManifest string, values Substitutions) (string, *ParsedManifest, error) {
-
+func UpdateManifest(yamlManifest string, values Substitutions) ([]byte, *ParsedManifest, error) {
 	manifests := strings.Split(yamlManifest, "---")
 
 	if err := UpdateCluster(manifests); err != nil {
-		return "", nil, err
+		return nil, nil, err
 	}
 
-	if err := UpdateLinCluster(manifests, values); err != nil {
-		return "", nil, err
+	if err := UpdateLinodeCluster(manifests, values); err != nil {
+		return nil, nil, err
 	}
 
 	controlPlaneManifests, err := ParseControlPlane(manifests)
 	if err != nil {
-		return "", nil, err
+		return nil, nil, err
 	}
 
 	yamlManifest = strings.Join(manifests, "---\n")
-	return yamlManifest, controlPlaneManifests, nil
+	return []byte(yamlManifest), controlPlaneManifests, nil
 }
 
 func UpdateCluster(manifests []string) error {
@@ -88,34 +87,34 @@ func UpdateCluster(manifests []string) error {
 	return nil
 }
 
-func UpdateLinCluster(manifests []string, values Substitutions) error {
-	var linClusterIndex int
-	var linCluster capl.LinodeCluster
+func UpdateLinodeCluster(manifests []string, values Substitutions) error {
+	var LinodeClusterIndex int
+	var LinodeCluster capl.LinodeCluster
 	for i, manifest := range manifests {
-		err := yaml.Unmarshal([]byte(manifest), &linCluster)
+		err := yaml.Unmarshal([]byte(manifest), &LinodeCluster)
 		if err != nil {
 			return err
 		}
-		if linCluster.Kind == "LinodeCluster" {
-			linCluster.Spec.ControlPlaneEndpoint = capi.APIEndpoint{
+		if LinodeCluster.Kind == "LinodeCluster" {
+			LinodeCluster.Spec.ControlPlaneEndpoint = capi.APIEndpoint{
 				Host: values.Linode.NodeBalancerIP,
-				Port: int32(values.Linode.ApiServerPort),
+				Port: int32(values.Linode.APIServerPort),
 			}
-			linCluster.Spec.Network = capl.NetworkSpec{
+			LinodeCluster.Spec.Network = capl.NetworkSpec{
 				LoadBalancerType:     "NodeBalancer",
 				LoadBalancerPort:     6443,
 				NodeBalancerID:       &values.Linode.NodeBalancerID,
 				NodeBalancerConfigID: &values.Linode.NodeBalancerConfigID,
 			}
-			linClusterIndex = i
+			LinodeClusterIndex = i
 			break
 		}
 	}
-	linClusterString, err := yaml.Marshal(linCluster)
+	LinodeClusterString, err := yaml.Marshal(LinodeCluster)
 	if err != nil {
 		return err
 	}
-	manifests[linClusterIndex] = string(linClusterString)
+	manifests[LinodeClusterIndex] = string(LinodeClusterString)
 	return nil
 }
 

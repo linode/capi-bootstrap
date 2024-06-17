@@ -3,7 +3,7 @@ package cmd
 import (
 	"capi-bootstrap/client"
 	"capi-bootstrap/cloudInit"
-	yamlParse "capi-bootstrap/yaml"
+	capiYaml "capi-bootstrap/yaml"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -90,28 +90,27 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 	if clusterName == "" {
 		return errors.New("cluster name is required")
 	}
-	sub := yamlParse.Substitutions{
+	sub := capiYaml.Substitutions{
 		ClusterName: clusterName,
-		Linode:      yamlParse.LinodeSubstitutions{AuthorizedKeys: authorizedKeys},
+		Linode:      capiYaml.LinodeSubstitutions{AuthorizedKeys: authorizedKeys},
 	}
 	klog.Infof("cluster name: %s", clusterName)
 	capiManifests, err := cloudInit.GenerateCapiManifests(sub)
 	if err != nil {
 		return errors.New("could not parse manifest")
 	}
-	yamlManifest := capiManifests.ManifestFile
 
-	manifests := strings.Split(yamlManifest.Content, "---")
+	manifests := strings.Split(capiManifests.ManifestFile.Content, "---")
 
-	clusterSpec := yamlParse.GetClusterDef(manifests)
+	clusterSpec := capiYaml.GetClusterDef(manifests)
 	if clusterSpec == nil {
 		return errors.New("cluster not found")
 	}
-	controlPlaneSpec := yamlParse.GetControlPlaneDef(manifests, clusterSpec.Spec.ControlPlaneRef.Kind)
+	controlPlaneSpec := capiYaml.GetControlPlaneDef(manifests, clusterSpec.Spec.ControlPlaneRef.Kind)
 	if controlPlaneSpec == nil {
 		return errors.New("control plane not found")
 	}
-	manifestMachine := yamlParse.GetMachineDef(manifests, controlPlaneSpec.Spec.InfrastructureTemplate.Kind)
+	manifestMachine := capiYaml.GetMachineDef(manifests, controlPlaneSpec.Spec.InfrastructureTemplate.Kind)
 	if manifestMachine == nil {
 		return errors.New("machine not found")
 	}
@@ -161,13 +160,16 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	sub.K8sVersion = controlPlaneSpec.Spec.Version
-	sub.Linode = yamlParse.LinodeSubstitutions{
+	if nodeBalancer.IPv4 == nil {
+		return errors.New("no node IPv4 address on NodeBalancer")
+	}
+	sub.Linode = capiYaml.LinodeSubstitutions{
 		Token:                linodeToken,
 		AuthorizedKeys:       authorizedKeys,
 		NodeBalancerIP:       *nodeBalancer.IPv4,
 		NodeBalancerID:       nodeBalancer.ID,
 		NodeBalancerConfigID: nodeBalancerConfig.ID,
-		ApiServerPort:        nodeBalancerConfig.Port,
+		APIServerPort:        nodeBalancerConfig.Port,
 	}
 	klog.Infof("k8s version : %s", controlPlaneSpec.Spec.Version)
 	cloudConfig, err := cloudInit.GenerateCloudInit(sub, true)
