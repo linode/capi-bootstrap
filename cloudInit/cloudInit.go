@@ -9,22 +9,12 @@ import (
 	"text/template"
 	"time"
 
+	yamlParse "capi-bootstrap/yaml"
+
 	"gopkg.in/yaml.v3"
 )
 
-type InitFile struct {
-	Path        string `yaml:"path"`
-	Content     string `yaml:"content"`
-	Owner       string `yaml:"owner,omitempty"`
-	Permissions string `yaml:"permissions,omitempty"`
-	Encoding    string `yaml:"encoding,omitempty"`
-}
-type Config struct {
-	WriteFiles []InitFile `yaml:"write_files"`
-	RunCmd     []string   `yaml:"runcmd"`
-}
-
-func GenerateCloudInit(values map[string]string, tarWriteFiles bool) (string, error) {
+func GenerateCloudInit(values yamlParse.Substitutions, tarWriteFiles bool) (string, error) {
 	certManager, err := generateCertManagerManifest(values)
 	if err != nil {
 		return "", err
@@ -34,7 +24,7 @@ func GenerateCloudInit(values map[string]string, tarWriteFiles bool) (string, er
 		return "", err
 	}
 
-	capiManifest, err := GenerateCapiManifests(values)
+	capiManifests, err := GenerateCapiManifests(values)
 	if err != nil {
 		return "", err
 	}
@@ -45,10 +35,6 @@ func GenerateCloudInit(values map[string]string, tarWriteFiles bool) (string, er
 		return "", err
 	}
 	capiLinode, err := generateCapiLinode(values)
-	if err != nil {
-		return "", err
-	}
-	ciliumConfig, err := generateCiliumConfig(values)
 	if err != nil {
 		return "", err
 	}
@@ -70,14 +56,16 @@ func GenerateCloudInit(values map[string]string, tarWriteFiles bool) (string, er
 	if err != nil {
 		return "", err
 	}
-	runCmds := []string{`echo "node-ip: $(hostname -I | grep -oE 192\.168\.[0-9]+\.[0-9]+)" >> /etc/rancher/k3s/config.yaml`,
-		fmt.Sprintf("curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION=%s sh -", values["k8s_version"]),
+	runCmds := []string{fmt.Sprintf("curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION=%s sh -", values.K8sVersion),
 		"curl -s -L https://github.com/derailed/k9s/releases/download/v0.32.4/k9s_Linux_amd64.tar.gz | tar -xvz -C /usr/local/bin k9s",
 		`echo "alias k=\"k3s kubectl\"" >> /root/.bashrc`,
 		"echo \"export KUBECONFIG=/etc/rancher/k3s/k3s.yaml\" >> /root/.bashrc",
 		"bash /tmp/init-cluster.sh",
 	}
-	writeFiles := []InitFile{*certManager, *capiOperator, *k3sProvider, *capiLinode, *linodeCCM, *ciliumConfig, *k3sConfig, *capiPivotMachine, *capiManifest, *initScript}
+	runCmds = append(capiManifests.PreRunCmd, runCmds...)
+	runCmds = append(runCmds, capiManifests.PostRunCmd...)
+	writeFiles := []yamlParse.InitFile{*certManager, *capiOperator, *k3sProvider, *capiLinode, *linodeCCM, *k3sConfig, *capiPivotMachine, *capiManifests.ManifestFile, *initScript}
+	writeFiles = append(writeFiles, capiManifests.AdditionalFiles...)
 	if tarWriteFiles {
 		fileReader, err := createTar(writeFiles)
 		if err != nil {
@@ -89,14 +77,14 @@ func GenerateCloudInit(values map[string]string, tarWriteFiles bool) (string, er
 			return "", err
 		}
 
-		writeFiles = []InitFile{{
+		writeFiles = []yamlParse.InitFile{{
 			Path:    "/tmp/cloud-init-files.tgz",
 			Content: string(data),
 		}}
 		runCmds = append([]string{"tar -C / -xvf /tmp/cloud-init-files.tgz", "tar -xf /tmp/cloud-init-files.tgz --to-command='xargs -0 cloud-init query -f > /$TAR_FILENAME'"}, runCmds...)
 	}
 
-	cloudConfig := Config{
+	cloudConfig := yamlParse.Config{
 		WriteFiles: writeFiles,
 		RunCmd:     runCmds,
 	}
@@ -110,7 +98,7 @@ func GenerateCloudInit(values map[string]string, tarWriteFiles bool) (string, er
 
 }
 
-func generateCertManagerManifest(values map[string]string) (*InitFile, error) {
+func generateCertManagerManifest(values yamlParse.Substitutions) (*yamlParse.InitFile, error) {
 	filePath := "/var/lib/rancher/k3s/server/manifests/cert-manager.yaml"
 	rawContents := `---
 apiVersion: helm.cattle.io/v1
@@ -129,7 +117,7 @@ spec:
 	return constructFile(filePath, rawContents, values)
 }
 
-func generateCapiOperator(values map[string]string) (*InitFile, error) {
+func generateCapiOperator(values yamlParse.Substitutions) (*yamlParse.InitFile, error) {
 	filePath := "/var/lib/rancher/k3s/server/manifests/capi-operator.yaml"
 	rawContents := `---
 apiVersion: v1
@@ -159,7 +147,7 @@ spec:
 	return constructFile(filePath, rawContents, values)
 }
 
-func generateLinodeCCM(values map[string]string) (*InitFile, error) {
+func generateLinodeCCM(values yamlParse.Substitutions) (*yamlParse.InitFile, error) {
 	filePath := "/var/lib/rancher/k3s/server/manifests/linode-ccm.yaml"
 	rawContents := `---
 apiVersion: helm.cattle.io/v1
@@ -189,12 +177,12 @@ metadata:
   name: linode-token-region
   namespace: kube-system
 stringData:
-  apiToken: {{{ .linode_token }}}
+  apiToken: {{{ .Linode.Token }}}
   region: {{ ds.meta_data.region }}`
 	return constructFile(filePath, rawContents, values)
 }
 
-func generateK3sProvider(values map[string]string) (*InitFile, error) {
+func generateK3sProvider(values yamlParse.Substitutions) (*yamlParse.InitFile, error) {
 	filePath := "/var/lib/rancher/k3s/server/manifests/capi-k3s.yaml"
 	rawContents := `---
 apiVersion: v1
@@ -227,7 +215,7 @@ spec:
 	return constructFile(filePath, rawContents, values)
 }
 
-func generateCapiLinode(values map[string]string) (*InitFile, error) {
+func generateCapiLinode(values yamlParse.Substitutions) (*yamlParse.InitFile, error) {
 	filePath := "/var/lib/rancher/k3s/server/manifests/capi-linode.yaml"
 	rawContents := `---
 apiVersion: v1
@@ -242,7 +230,7 @@ metadata:
   namespace: capl-system
 type: Opaque
 stringData:
-  LINODE_TOKEN: {{{ .linode_token }}}
+  LINODE_TOKEN: {{{ .Linode.Token }}}
 ---
 apiVersion: operator.cluster.x-k8s.io/v1alpha2
 kind: InfrastructureProvider
@@ -259,35 +247,7 @@ spec:
 
 }
 
-func generateCiliumConfig(values map[string]string) (*InitFile, error) {
-	filePath := "/var/lib/rancher/k3s/server/manifests/cilium-config.yaml"
-	rawContents := `apiVersion: helm.cattle.io/v1
-kind: HelmChart
-metadata:
-  name: cilium
-  namespace: kube-system
-spec:
-  targetNamespace: kube-system
-  version: 1.15.0
-  chart: cilium
-  repo: https://helm.cilium.io/
-  bootstrap: true
-  valuesContent: |-
-    bgpControlPlane:
-      enabled: true
-    ipam:
-      mode: kubernetes
-    k8s:
-      requireIPv4PodCIDR: true
-    hubble:
-      relay:
-        enabled: true
-      ui:
-        enabled: true`
-	return constructFile(filePath, rawContents, values)
-}
-
-func generateK3sConfig(values map[string]string) (*InitFile, error) {
+func generateK3sConfig(values yamlParse.Substitutions) (*yamlParse.InitFile, error) {
 	filePath := "/etc/rancher/k3s/config.yaml"
 	rawContents := `cluster-init: true
 flannel-backend: none
@@ -304,46 +264,46 @@ kube-controller-manager-arg:
 - cloud-provider=external
 kubelet-arg:
 - cloud-provider=external
-node-name: '{{{ .cluster_name }}}-bootstrap'
+node-name: '{{{ .ClusterName }}}-bootstrap'
 node-ip:
 tls-san:
-- {{{ .linode_lb_ip }}}
+- {{{ .Linode.NodeBalancerIP }}}
 `
 	return constructFile(filePath, rawContents, values)
 }
 
-func generateCapiPivotMachine(values map[string]string) (*InitFile, error) {
+func generateCapiPivotMachine(values yamlParse.Substitutions) (*yamlParse.InitFile, error) {
 	filePath := "/var/lib/rancher/k3s/server/manifests/capi-pivot-machine.yaml"
 	rawContents := `---
 apiVersion: cluster.x-k8s.io/v1beta1
 kind: Machine
 metadata:
   labels:
-    cluster.x-k8s.io/cluster-name: {{{ .cluster_name }}}
+    cluster.x-k8s.io/cluster-name: {{{ .ClusterName }}}
     cluster.x-k8s.io/control-plane: ""
     cluster.x-k8s.io/control-plane-name: ""
-  name: {{{ .cluster_name }}}-bootstrap
+  name: {{{ .ClusterName }}}-bootstrap
   namespace: default
 spec:
   bootstrap:
-    dataSecretName: linode-{{{ .cluster_name }}}-crs-0
+    dataSecretName: linode-{{{ .ClusterName }}}-crs-0
   infrastructureRef:
     apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
     kind: LinodeMachine
-    name: {{{ .cluster_name }}}-bootstrap
+    name: {{{ .ClusterName }}}-bootstrap
     namespace: default
-  clusterName: {{{ .cluster_name }}}
+  clusterName: {{{ .ClusterName }}}
   providerID: linode://{{ ds.meta_data.id }}
-  version: {{{ .k8s_version }}}
+  version: {{{ .K8sVersion }}}
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
 kind: LinodeMachine
 metadata:
   labels:
-    cluster.x-k8s.io/cluster-name: {{{ .cluster_name }}}
+    cluster.x-k8s.io/cluster-name: {{{ .ClusterName }}}
     cluster.x-k8s.io/control-plane: ""
     cluster.x-k8s.io/control-plane-name: ""
-  name: {{{ .cluster_name }}}-bootstrap
+  name: {{{ .ClusterName }}}-bootstrap
   namespace: default
 spec:
   image: linode/ubuntu22.04
@@ -354,7 +314,7 @@ spec:
 	return constructFile(filePath, rawContents, values)
 }
 
-func GenerateCapiManifests(values map[string]string) (*InitFile, error) {
+func GenerateCapiManifests(values yamlParse.Substitutions) (*yamlParse.ParsedManifest, error) {
 	filePath := "/var/lib/rancher/k3s/server/manifests/capi-pivot-k3s.yaml"
 	rawContents := `---
 apiVersion: v1
@@ -362,17 +322,17 @@ kind: Secret
 metadata:
   labels:
     clusterctl.cluster.x-k8s.io/move: "true"
-  name: {{{ .cluster_name }}}-credentials
+  name: {{{ .ClusterName }}}-credentials
   namespace: default
 stringData:
-  apiToken: {{{ .linode_token }}}
+  apiToken: {{{ .Linode.Token }}}
 ---
 apiVersion: cluster.x-k8s.io/v1beta1
 kind: Cluster
 metadata:
   labels:
-    cluster: {{{ .cluster_name }}}
-  name: {{{ .cluster_name }}}
+    cluster: {{{ .ClusterName }}}
+  name: {{{ .ClusterName }}}
   namespace: default
 spec:
   clusterNetwork:
@@ -382,22 +342,22 @@ spec:
   controlPlaneRef:
     apiVersion: controlplane.cluster.x-k8s.io/v1beta1
     kind: KThreesControlPlane
-    name: fake-control-plane
+    name: test-cluster-control-plane
   infrastructureRef:
     apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
     kind: LinodeCluster
-    name: {{{ .cluster_name }}}
+    name: {{{ .ClusterName }}}
 ---
 apiVersion: controlplane.cluster.x-k8s.io/v1beta1
 kind: KThreesControlPlane
 metadata:
-  name: {{{ .cluster_name }}}-control-plane
+  name: {{{ .ClusterName }}}-control-plane
   namespace: default
 spec:
   infrastructureTemplate:
     apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
     kind: LinodeMachineTemplate
-    name: {{{ .cluster_name }}}-control-plane
+    name: {{{ .ClusterName }}}-control-plane
   kthreesConfigSpec:
     files:
       - path: /etc/rancher/k3s/config.yaml.d/capi-config.yaml
@@ -405,6 +365,35 @@ spec:
         content: |
           flannel-backend: none
           disable-network-policy: true
+      - path: /var/lib/rancher/k3s/server/manifests/cilium.yaml
+        content: |-
+          apiVersion: helm.cattle.io/v1
+          kind: HelmChart
+          metadata:
+            name: cilium
+            namespace: kube-system
+          spec:
+            targetNamespace: kube-system
+            version: 1.15.4
+            chart: cilium
+            repo: https://helm.cilium.io/
+            bootstrap: true
+            valuesContent: |-
+              bgpControlPlane:
+                enabled: true
+              ipam:
+                mode: kubernetes
+              ipv4:
+                enabled: true
+              ipv6:
+                enabled: false
+              k8s:
+                requireIPv4PodCIDR: true
+              hubble:
+                relay:
+                  enabled: true
+                ui:
+                  enabled: true
     agentConfig:
       nodeName: "{{ '{{ ds.meta_data.label }}' }}"
     preK3sCommands:
@@ -423,24 +412,17 @@ spec:
 apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
 kind: LinodeCluster
 metadata:
-  name: {{{ .cluster_name }}}
+  name: {{{ .ClusterName }}}
   namespace: default
 spec:
   credentialsRef:
-    name: {{{ .cluster_name }}}-credentials
+    name: {{{ .ClusterName }}}-credentials
   region: us-mia
-  controlPlaneEndpoint:
-    host: {{{ .linode_lb_ip }}}
-    port: {{{ .linode_lb_port }}}
-  network:
-    loadBalancerType: NodeBalancer
-    nodeBalancerConfigID: {{{ .linode_nb_config_id }}}
-    nodeBalancerID: {{{ .linode_nb_id }}}
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
 kind: LinodeMachineTemplate
 metadata:
-  name: {{{ .cluster_name }}}-control-plane
+  name: {{{ .ClusterName }}}-control-plane
   namespace: default
 spec:
   template:
@@ -448,31 +430,40 @@ spec:
       image: linode/ubuntu22.04
       region: us-mia
       type: g6-standard-4
-      authorizedKeys: [{{{ .linode_authorized_keys }}}]`
-
-	return constructFile(filePath, rawContents, values)
+      authorizedKeys: [{{{ .Linode.AuthorizedKeys }}}]`
+	cloudInitFile, err := constructFile(filePath, rawContents, values)
+	if err != nil {
+		return nil, err
+	}
+	var capiManifests *yamlParse.ParsedManifest
+	cloudInitFile.Content, capiManifests, err = yamlParse.UpdateManifest(cloudInitFile.Content, values)
+	if err != nil {
+		return nil, err
+	}
+	capiManifests.ManifestFile = cloudInitFile
+	return capiManifests, nil
 
 }
 
-func generateInitScript(values map[string]string) (*InitFile, error) {
+func generateInitScript(values yamlParse.Substitutions) (*yamlParse.InitFile, error) {
 	filePath := "/tmp/init-cluster.sh"
 	rawContents := `#!/bin/bash
-sed -i "s/127.0.0.1/{{{ .linode_lb_ip }}}/" /etc/rancher/k3s/k3s.yaml
-k3s kubectl create secret generic {{{ .cluster_name }}}-kubeconfig --type=cluster.x-k8s.io/secret --from-file=value=/etc/rancher/k3s/k3s.yaml --dry-run=client -oyaml > /var/lib/rancher/k3s/server/manifests/cluster-kubeconfig.yaml
-k3s kubectl create secret generic {{{ .cluster_name }}}-ca --type=cluster.x-k8s.io/secret --from-file=tls.crt=/var/lib/rancher/k3s/server/tls/server-ca.crt --from-file=tls.key=/var/lib/rancher/k3s/server/tls/server-ca.key --dry-run=client -oyaml > /var/lib/rancher/k3s/server/manifests/cluster-ca.yaml
-k3s kubectl create secret generic {{{ .cluster_name }}}-cca --type=cluster.x-k8s.io/secret --from-file=tls.crt=/var/lib/rancher/k3s/server/tls/client-ca.crt --from-file=tls.key=/var/lib/rancher/k3s/server/tls/client-ca.key --dry-run=client -oyaml > /var/lib/rancher/k3s/server/manifests/cluster-cca.yaml
-k3s kubectl create secret generic {{{ .cluster_name }}}-token --type=cluster.x-k8s.io/secret --from-file=value=/var/lib/rancher/k3s/server/token --dry-run=client -oyaml > /var/lib/rancher/k3s/server/manifests/cluster-token.yaml
-until k3s kubectl get secret {{{ .cluster_name }}}-ca {{{ .cluster_name }}}-cca {{{ .cluster_name }}}-kubeconfig {{{ .cluster_name }}}-token; do sleep 5; done
-k3s kubectl label secret {{{ .cluster_name }}}-kubeconfig {{{ .cluster_name }}}-ca {{{ .cluster_name }}}-cca {{{ .cluster_name }}}-token "cluster.x-k8s.io/cluster-name"="{{{ .cluster_name }}}"
-until k3s kubectl get kthreescontrolplane {{{ .cluster_name }}}-control-plane; do sleep 10; done
-k3s kubectl patch machine {{{ .cluster_name }}}-bootstrap --type=json -p "[{\"op\": \"add\", \"path\": \"/metadata/ownerReferences\", \"value\" : [{\"apiVersion\":\"controlplane.cluster.x-k8s.io/v1beta1\",\"blockOwnerDeletion\":true,\"controller\":true,\"kind\":\"KThreesControlPlane\",\"name\":\"{{{ .cluster_name }}}-control-plane\",\"uid\":\"$(k3s kubectl get KThreesControlPlane {{{ .cluster_name }}}-control-plane -ojsonpath='{.metadata.uid}')\"}]}]"
+sed -i "s/127.0.0.1/{{{ .Linode.NodeBalancerIP }}}/" /etc/rancher/k3s/k3s.yaml
+k3s kubectl create secret generic {{{ .ClusterName }}}-kubeconfig --type=cluster.x-k8s.io/secret --from-file=value=/etc/rancher/k3s/k3s.yaml --dry-run=client -oyaml > /var/lib/rancher/k3s/server/manifests/cluster-kubeconfig.yaml
+k3s kubectl create secret generic {{{ .ClusterName }}}-ca --type=cluster.x-k8s.io/secret --from-file=tls.crt=/var/lib/rancher/k3s/server/tls/server-ca.crt --from-file=tls.key=/var/lib/rancher/k3s/server/tls/server-ca.key --dry-run=client -oyaml > /var/lib/rancher/k3s/server/manifests/cluster-ca.yaml
+k3s kubectl create secret generic {{{ .ClusterName }}}-cca --type=cluster.x-k8s.io/secret --from-file=tls.crt=/var/lib/rancher/k3s/server/tls/client-ca.crt --from-file=tls.key=/var/lib/rancher/k3s/server/tls/client-ca.key --dry-run=client -oyaml > /var/lib/rancher/k3s/server/manifests/cluster-cca.yaml
+k3s kubectl create secret generic {{{ .ClusterName }}}-token --type=cluster.x-k8s.io/secret --from-file=value=/var/lib/rancher/k3s/server/token --dry-run=client -oyaml > /var/lib/rancher/k3s/server/manifests/cluster-token.yaml
+until k3s kubectl get secret {{{ .ClusterName }}}-ca {{{ .ClusterName }}}-cca {{{ .ClusterName }}}-kubeconfig {{{ .ClusterName }}}-token; do sleep 5; done
+k3s kubectl label secret {{{ .ClusterName }}}-kubeconfig {{{ .ClusterName }}}-ca {{{ .ClusterName }}}-cca {{{ .ClusterName }}}-token "cluster.x-k8s.io/cluster-name"="{{{ .ClusterName }}}"
+until k3s kubectl get kthreescontrolplane {{{ .ClusterName }}}-control-plane; do sleep 10; done
+k3s kubectl patch machine {{{ .ClusterName }}}-bootstrap --type=json -p "[{\"op\": \"add\", \"path\": \"/metadata/ownerReferences\", \"value\" : [{\"apiVersion\":\"controlplane.cluster.x-k8s.io/v1beta1\",\"blockOwnerDeletion\":true,\"controller\":true,\"kind\":\"KThreesControlPlane\",\"name\":\"{{{ .ClusterName }}}-control-plane\",\"uid\":\"$(k3s kubectl get KThreesControlPlane {{{ .ClusterName }}}-control-plane -ojsonpath='{.metadata.uid}')\"}]}]"
 sleep 15
-k3s kubectl patch cluster {{{ .cluster_name }}} --type=json -p '[{"op": "replace", "path": "/spec/controlPlaneRef/name", "value": "{{{ .cluster_name }}}-control-plane"}]'`
+k3s kubectl patch cluster {{{ .ClusterName }}} --type=json -p '[{"op": "replace", "path": "/spec/controlPlaneRef/name", "value": "{{{ .ClusterName }}}-control-plane"}]'`
 
 	return constructFile(filePath, rawContents, values)
 }
 
-func templateManifest(rawTemplate string, templateValues map[string]string) (string, error) {
+func templateManifest(rawTemplate string, templateValues yamlParse.Substitutions) (string, error) {
 	tmpl := template.New("capi-template")
 	tmpl.Delims("{{{", "}}}")
 	tmpl, err := tmpl.Parse(rawTemplate)
@@ -489,13 +480,13 @@ func templateManifest(rawTemplate string, templateValues map[string]string) (str
 	return buf.String(), nil
 }
 
-func constructFile(filePath string, rawContents string, values map[string]string) (*InitFile, error) {
+func constructFile(filePath string, rawContents string, values yamlParse.Substitutions) (*yamlParse.InitFile, error) {
 
 	manifest, err := templateManifest(rawContents, values)
 	if err != nil {
 		return nil, err
 	}
-	initFile := InitFile{
+	initFile := yamlParse.InitFile{
 		Path:    filePath,
 		Content: manifest,
 	}
@@ -503,7 +494,7 @@ func constructFile(filePath string, rawContents string, values map[string]string
 	return &initFile, nil
 }
 
-func createTar(cloudFiles []InitFile) (io.Reader, error) {
+func createTar(cloudFiles []yamlParse.InitFile) (io.Reader, error) {
 	var buf bytes.Buffer
 	gzipWriter := gzip.NewWriter(&buf)
 	defer gzipWriter.Close()

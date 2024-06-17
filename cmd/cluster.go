@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"bytes"
 	"capi-bootstrap/client"
 	"capi-bootstrap/cloudInit"
 	yamlParse "capi-bootstrap/yaml"
@@ -11,13 +10,12 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strconv"
+	"strings"
 
 	"github.com/google/uuid"
 
 	"github.com/linode/linodego"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 	"k8s.io/klog/v2"
 )
 
@@ -82,7 +80,7 @@ func init() {
 func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
 	var clusterName string
-
+	authorizedKeys := os.Getenv("AUTHORIZED_KEYS")
 	if os.Getenv("CLUSTER_NAME") != "" {
 		clusterName = os.Getenv("CLUSTER_NAME")
 	}
@@ -92,23 +90,28 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 	if clusterName == "" {
 		return errors.New("cluster name is required")
 	}
-	sub := map[string]string{
-		"cluster_name": clusterName,
+	sub := yamlParse.Substitutions{
+		ClusterName: clusterName,
+		Linode:      yamlParse.LinodeSubstitutions{AuthorizedKeys: authorizedKeys},
 	}
 	klog.Infof("cluster name: %s", clusterName)
-	yamlManifest, _ := cloudInit.GenerateCapiManifests(sub)
+	capiManifests, err := cloudInit.GenerateCapiManifests(sub)
+	if err != nil {
+		return errors.New("could not parse manifest")
+	}
+	yamlManifest := capiManifests.ManifestFile
 
-	dec := yaml.NewDecoder(bytes.NewReader([]byte(yamlManifest.Content)))
+	manifests := strings.Split(yamlManifest.Content, "---")
 
-	clusterSpec := yamlParse.GetClusterDef(dec)
+	clusterSpec := yamlParse.GetClusterDef(manifests)
 	if clusterSpec == nil {
 		return errors.New("cluster not found")
 	}
-	controlPlaneSpec := yamlParse.GetControlPlaneDef(dec, clusterSpec.Spec.ControlPlaneRef.Kind)
+	controlPlaneSpec := yamlParse.GetControlPlaneDef(manifests, clusterSpec.Spec.ControlPlaneRef.Kind)
 	if controlPlaneSpec == nil {
 		return errors.New("control plane not found")
 	}
-	manifestMachine := yamlParse.GetMachineDef(dec, controlPlaneSpec.Spec.InfrastructureTemplate.Kind)
+	manifestMachine := yamlParse.GetMachineDef(manifests, controlPlaneSpec.Spec.InfrastructureTemplate.Kind)
 	if manifestMachine == nil {
 		return errors.New("machine not found")
 	}
@@ -119,7 +122,6 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 
 	// Define command-line flags for the input variables
 	linodeToken := os.Getenv("LINODE_TOKEN")
-	authorizedKeys := os.Getenv("AUTHORIZED_KEYS")
 
 	if linodeToken == "" {
 		return errors.New("linode_token is required")
@@ -158,16 +160,14 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-
-	sub = map[string]string{
-		"cluster_name":           clusterName,
-		"linode_token":           linodeToken,
-		"linode_authorized_keys": authorizedKeys,
-		"linode_lb_ip":           *nodeBalancer.IPv4,
-		"linode_nb_id":           strconv.Itoa(nodeBalancer.ID),
-		"linode_nb_config_id":    strconv.Itoa(nodeBalancerConfig.ID),
-		"linode_lb_port":         strconv.Itoa(nodeBalancerConfig.Port),
-		"k8s_version":            controlPlaneSpec.Spec.Version,
+	sub.K8sVersion = controlPlaneSpec.Spec.Version
+	sub.Linode = yamlParse.LinodeSubstitutions{
+		Token:                linodeToken,
+		AuthorizedKeys:       authorizedKeys,
+		NodeBalancerIP:       *nodeBalancer.IPv4,
+		NodeBalancerID:       nodeBalancer.ID,
+		NodeBalancerConfigID: nodeBalancerConfig.ID,
+		ApiServerPort:        nodeBalancerConfig.Port,
 	}
 	klog.Infof("k8s version : %s", controlPlaneSpec.Spec.Version)
 	cloudConfig, err := cloudInit.GenerateCloudInit(sub, true)
