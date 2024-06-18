@@ -3,7 +3,6 @@ package cloudInit
 import (
 	"archive/tar"
 	"bytes"
-	capiYaml "capi-bootstrap/yaml"
 	"compress/gzip"
 	"embed"
 	_ "embed"
@@ -13,6 +12,8 @@ import (
 	"path/filepath"
 	"text/template"
 	"time"
+
+	capiYaml "capi-bootstrap/yaml"
 
 	"gopkg.in/yaml.v3"
 )
@@ -59,7 +60,8 @@ func GenerateCloudInit(values capiYaml.Substitutions, tarWriteFiles bool) ([]byt
 	if err != nil {
 		return nil, err
 	}
-	runCmds := []string{fmt.Sprintf("curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION=%q sh -", values.K8sVersion),
+	runCmds := []string{
+		fmt.Sprintf("curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION=%q sh -", values.K8sVersion),
 		"curl -s -L https://github.com/derailed/k9s/releases/download/v0.32.4/k9s_Linux_amd64.tar.gz | tar -xvz -C /usr/local/bin k9s",
 		`echo "alias k=\"k3s kubectl\"" >> /root/.bashrc`,
 		"echo \"export KUBECONFIG=/etc/rancher/k3s/k3s.yaml\" >> /root/.bashrc",
@@ -76,7 +78,8 @@ func GenerateCloudInit(values capiYaml.Substitutions, tarWriteFiles bool) ([]byt
 		*k3sConfig,
 		*capiPivotMachine,
 		*capiManifests.ManifestFile,
-		*initScript}
+		*initScript,
+	}
 	writeFiles = append(writeFiles, capiManifests.AdditionalFiles...)
 	if tarWriteFiles {
 		fileReader, err := createTar(writeFiles)
@@ -108,7 +111,6 @@ func GenerateCloudInit(values capiYaml.Substitutions, tarWriteFiles bool) ([]byt
 
 	renderedCloudConfig := append([]byte("## template: jinja\n#cloud-config\n\n"), rawCloudConfig...)
 	return renderedCloudConfig, nil
-
 }
 
 //go:embed files
@@ -137,7 +139,6 @@ func generateK3sProvider(values capiYaml.Substitutions) (*capiYaml.InitFile, err
 func generateCapiLinode(values capiYaml.Substitutions) (*capiYaml.InitFile, error) {
 	filePath := "/var/lib/rancher/k3s/server/manifests/capi-linode.yaml"
 	return constructFile(filePath, "files/linode/capi-linode.yaml", files, values)
-
 }
 
 func generateK3sConfig(values capiYaml.Substitutions) (*capiYaml.InitFile, error) {
@@ -164,7 +165,6 @@ func GenerateCapiManifests(values capiYaml.Substitutions) (*capiYaml.ParsedManif
 	cloudInitFile.Content = string(initFileContent)
 	capiManifests.ManifestFile = cloudInitFile
 	return capiManifests, nil
-
 }
 
 func generateInitScript(values capiYaml.Substitutions) (*capiYaml.InitFile, error) {
@@ -191,7 +191,6 @@ func templateManifest(filesystem fs.FS, localPath string, templateValues capiYam
 }
 
 func constructFile(filePath string, localPath string, filesystem fs.FS, values capiYaml.Substitutions) (*capiYaml.InitFile, error) {
-
 	manifest, err := templateManifest(filesystem, localPath, values)
 	if err != nil {
 		return nil, err
@@ -215,7 +214,7 @@ func createTar(cloudFiles []capiYaml.InitFile) (io.Reader, error) {
 			Name:    file.Path[1:],
 			Size:    int64(len(file.Content)),
 			ModTime: time.Now(),
-			Mode:    0644,
+			Mode:    0o644,
 		}
 		if err := tarWriter.WriteHeader(header); err != nil {
 			return nil, err

@@ -1,12 +1,13 @@
 package cmd
 
 import (
-	"capi-bootstrap/client"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
+
+	"capi-bootstrap/client"
 
 	"github.com/linode/linodego"
 	"github.com/spf13/cobra"
@@ -58,7 +59,6 @@ func runDeleteCluster(cmd *cobra.Command, clusterName string) error {
 	instances, err := linclient.ListInstances(ctx, ptr.To(linodego.ListOptions{
 		Filter: string(ListFilter),
 	}))
-
 	if err != nil {
 		return fmt.Errorf("could not list instances: %v", err)
 	}

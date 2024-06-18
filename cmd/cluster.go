@@ -1,9 +1,6 @@
 package cmd
 
 import (
-	"capi-bootstrap/client"
-	"capi-bootstrap/cloudInit"
-	capiYaml "capi-bootstrap/yaml"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -11,6 +8,10 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"capi-bootstrap/client"
+	"capi-bootstrap/cloudInit"
+	capiYaml "capi-bootstrap/yaml"
 
 	"github.com/google/uuid"
 
@@ -49,7 +50,6 @@ type clusterOptions struct {
 var clusterOpts = &clusterOptions{}
 
 func init() {
-
 	clusterCmd.Flags().StringVarP(&clusterOpts.manifest, "manifest", "m", "",
 		"The file containing cluster manifest to use for bootstrap cluster")
 
@@ -74,7 +74,6 @@ func init() {
 
 	// flags for the config map source
 	rootCmd.AddCommand(clusterCmd)
-
 }
 
 func runBootstrapCluster(cmd *cobra.Command, args []string) error {
