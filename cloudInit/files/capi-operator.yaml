@@ -1,0 +1,25 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: capi-operator-system
+---
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: capi-operator
+  namespace: capi-operator-system
+spec:
+  repo: https://kubernetes-sigs.github.io/cluster-api-operator
+  chart: cluster-api-operator
+  targetNamespace: capi-operator-system
+  createNamespace: true
+  bootstrap: true
+  valuesContent: |-
+    core: cluster-api
+    addon: helm
+    manager:
+      featureGates:
+        core:
+          ClusterResourceSet: true
+          ClusterTopology: true

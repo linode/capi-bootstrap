@@ -97,7 +97,7 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 	klog.Infof("cluster name: %s", clusterName)
 	capiManifests, err := cloudInit.GenerateCapiManifests(sub)
 	if err != nil {
-		return errors.New("could not parse manifest")
+		return fmt.Errorf("could not parse manifest: %s", err)
 	}
 
 	manifests := strings.Split(capiManifests.ManifestFile.Content, "---")

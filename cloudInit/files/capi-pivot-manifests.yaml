@@ -1,0 +1,115 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  labels:
+    clusterctl.cluster.x-k8s.io/move: "true"
+  name: "{{{ .ClusterName }}}-credentials"
+  namespace: default
+stringData:
+  apiToken: "{{{ .Linode.Token }}}"
+---
+apiVersion: cluster.x-k8s.io/v1beta1
+kind: Cluster
+metadata:
+  labels:
+    cluster: "{{{ .ClusterName }}}"
+  name: "{{{ .ClusterName }}}"
+  namespace: default
+spec:
+  clusterNetwork:
+    pods:
+      cidrBlocks:
+        - 10.192.0.0/10
+  controlPlaneRef:
+    apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+    kind: KThreesControlPlane
+    name: test-cluster-control-plane
+  infrastructureRef:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
+    kind: LinodeCluster
+    name: "{{{ .ClusterName }}}"
+---
+apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+kind: KThreesControlPlane
+metadata:
+  name: "{{{ .ClusterName }}}-control-plane"
+  namespace: default
+spec:
+  infrastructureTemplate:
+    apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
+    kind: LinodeMachineTemplate
+    name: "{{{ .ClusterName }}}-control-plane"
+  kthreesConfigSpec:
+    files:
+        - path: /etc/rancher/k3s/config.yaml.d/capi-config.yaml
+          owner: root:root
+          content: |
+            flannel-backend: none
+            disable-network-policy: true
+        - path: /var/lib/rancher/k3s/server/manifests/cilium.yaml
+          content: |-
+            apiVersion: helm.cattle.io/v1
+            kind: HelmChart
+            metadata:
+              name: cilium
+              namespace: kube-system
+            spec:
+              targetNamespace: kube-system
+              version: 1.15.4
+              chart: cilium
+              repo: https://helm.cilium.io/
+              bootstrap: true
+              valuesContent: |-
+                bgpControlPlane:
+                  enabled: true
+                ipam:
+                  mode: kubernetes
+                ipv4:
+                  enabled: true
+                ipv6:
+                  enabled: false
+                k8s:
+                  requireIPv4PodCIDR: true
+                hubble:
+                  relay:
+                    enabled: true
+                  ui:
+                    enabled: true
+    agentConfig:
+      nodeName: "{{ '{{ ds.meta_data.label }}' }}"
+    preK3sCommands:
+      - |
+        echo "node-ip: $(hostname -I | grep -oE 192\.168\.[0-9]+\.[0-9]+)" >> /etc/rancher/k3s/config.yaml.d/capi-config.yaml
+      - sed -i '/swap/d' /etc/fstab
+      - swapoff -a
+      - hostnamectl set-hostname "{{ '{{ ds.meta_data.label }}' }}" && hostname -F /etc/hostname
+    serverConfig:
+      disableComponents:
+        - servicelb
+        - traefik
+  replicas: 3
+  version: v1.29.4+k3s1
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
+kind: LinodeCluster
+metadata:
+  name: "{{{ .ClusterName }}}"
+  namespace: default
+spec:
+  credentialsRef:
+    name: "{{{ .ClusterName }}}-credentials"
+  region: us-mia
+---
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
+kind: LinodeMachineTemplate
+metadata:
+  name: "{{{ .ClusterName }}}-control-plane"
+  namespace: default
+spec:
+  template:
+    spec:
+      image: linode/ubuntu22.04
+      region: us-mia
+      type: g6-standard-4
+      authorizedKeys: [{{{ .Linode.AuthorizedKeys }}}]
