@@ -177,18 +177,22 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	createOptions := linodego.InstanceCreateOptions{
+		Label:     clusterName + "-bootstrap",
+		Image:     image,
+		Region:    region,
+		Type:      imageType,
+		RootPass:  uuid.NewString(),
+		Tags:      []string{clusterName},
+		PrivateIP: true,
+		Metadata:  &linodego.InstanceMetadataOptions{UserData: base64.StdEncoding.EncodeToString(cloudConfig)},
+	}
+	if authorizedKeys != "" {
+		createOptions.AuthorizedKeys = []string{authorizedKeys}
+	}
+
 	// Create a Linode Instance
-	instance, err := linClient.CreateInstance(ctx, linodego.InstanceCreateOptions{
-		Label:          clusterName + "-bootstrap",
-		Image:          image,
-		Region:         region,
-		Type:           imageType,
-		AuthorizedKeys: []string{authorizedKeys},
-		RootPass:       uuid.NewString(),
-		Tags:           []string{clusterName},
-		PrivateIP:      true,
-		Metadata:       &linodego.InstanceMetadataOptions{UserData: base64.StdEncoding.EncodeToString([]byte(cloudConfig))},
-	})
+	instance, err := linClient.CreateInstance(ctx, createOptions)
 	if err != nil {
 		return err
 	}
