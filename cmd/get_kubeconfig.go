@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"capi-bootstrap/client"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -10,6 +9,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+
+	"capi-bootstrap/client"
 
 	"k8s.io/klog/v2"
 
