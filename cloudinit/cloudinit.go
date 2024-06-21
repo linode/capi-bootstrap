@@ -1,4 +1,4 @@
-package cloudInit
+package cloudinit
 
 import (
 	"archive/tar"
@@ -18,7 +18,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func GenerateCloudInit(values capiYaml.Substitutions, tarWriteFiles bool) ([]byte, error) {
+//go:embed files
+var files embed.FS
+
+func GenerateCloudInit(values capiYaml.Substitutions, manifestFS fs.FS, manifestFile string, tarWriteFiles bool) ([]byte, error) {
 	certManager, err := generateCertManagerManifest(values)
 	if err != nil {
 		return nil, err
@@ -28,7 +31,7 @@ func GenerateCloudInit(values capiYaml.Substitutions, tarWriteFiles bool) ([]byt
 		return nil, err
 	}
 
-	capiManifests, err := GenerateCapiManifests(values)
+	capiManifests, err := GenerateCapiManifests(manifestFS, manifestFile)
 	if err != nil {
 		return nil, err
 	}
@@ -113,9 +116,6 @@ func GenerateCloudInit(values capiYaml.Substitutions, tarWriteFiles bool) ([]byt
 	return renderedCloudConfig, nil
 }
 
-//go:embed files
-var files embed.FS
-
 func generateCertManagerManifest(values capiYaml.Substitutions) (*capiYaml.InitFile, error) {
 	filePath := "/var/lib/rancher/k3s/server/manifests/cert-manager.yaml"
 	return constructFile(filePath, "files/cert-manager.yaml", files, values)
@@ -151,14 +151,14 @@ func generateCapiPivotMachine(values capiYaml.Substitutions) (*capiYaml.InitFile
 	return constructFile(filePath, "files/capi-pivot-machine.yaml", files, values)
 }
 
-func GenerateCapiManifests(values capiYaml.Substitutions) (*capiYaml.ParsedManifest, error) {
-	filePath := "/var/lib/rancher/k3s/server/manifests/capi-pivot-k3s.yaml"
-	cloudInitFile, err := constructFile(filePath, "files/capi-pivot-manifests.yaml", files, values)
+func GenerateCapiManifests(manifestFS fs.FS, manifestFile string) (*capiYaml.ParsedManifest, error) {
+	filePath := "/var/lib/rancher/k3s/server/manifests/capi-manifests.yaml"
+	cloudInitFile, err := constructFile(filePath, manifestFile, manifestFS, capiYaml.Substitutions{})
 	if err != nil {
 		return nil, err
 	}
 	var capiManifests *capiYaml.ParsedManifest
-	initFileContent, capiManifests, err := capiYaml.UpdateManifest(cloudInitFile.Content, values)
+	initFileContent, capiManifests, err := capiYaml.UpdateManifest(cloudInitFile.Content, capiYaml.Substitutions{})
 	if err != nil {
 		return nil, err
 	}
