@@ -28,7 +28,8 @@ Note: if you are using devbox, enter into a shell using `devbox shell` before ru
 
    _Note: If you are not using devbox make sure to run `export PATH=$PATH:./bin/`_
     ```shell
-    clusterctl bootstrap cluster $CLUSTER_NAME
+    clusterctl generate cluster $CLUSTER_NAME --control-plane-machine-count=3 --worker-machine-count=3   --kubernetes-version v1.29.4+k3s1     --infrastructure linode-linode:v0.3.1  --flavor k3s-vpcless > test-cluster-k3s.yaml
+    clusterctl bootstrap cluster -m test-cluster-k3s.yaml
     # I0603 10:12:51.190936   70482 cluster.go:85] cluster name: test-cluster
     # I0603 10:12:51.814196   70482 cluster.go:116] Created NodeBalancer: test-cluster
     # I0603 10:12:53.447277   70482 cluster.go:165] Created Linode Instance: test-cluster-bootstrap

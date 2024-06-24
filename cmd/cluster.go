@@ -7,10 +7,11 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"capi-bootstrap/client"
-	"capi-bootstrap/cloudInit"
+	"capi-bootstrap/cloudinit"
 	capiYaml "capi-bootstrap/yaml"
 
 	"github.com/google/uuid"
@@ -79,22 +80,24 @@ func init() {
 func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
 	var clusterName string
-	authorizedKeys := os.Getenv("AUTHORIZED_KEYS")
 	if os.Getenv("CLUSTER_NAME") != "" {
 		clusterName = os.Getenv("CLUSTER_NAME")
 	}
 	if len(args) != 0 {
 		clusterName = args[0]
 	}
-	if clusterName == "" {
-		return errors.New("cluster name is required")
+
+	manifestFileName, err := cmd.Flags().GetString("manifest")
+	if err != nil {
+		return err
 	}
-	sub := capiYaml.Substitutions{
-		ClusterName: clusterName,
-		Linode:      capiYaml.LinodeSubstitutions{AuthorizedKeys: authorizedKeys},
+
+	manifestFS := os.DirFS(filepath.Base(manifestFileName))
+	if manifestFileName == "-" {
+		manifestFS = cloudinit.IoFS{Reader: cmd.InOrStdin()}
 	}
-	klog.Infof("cluster name: %s", clusterName)
-	capiManifests, err := cloudInit.GenerateCapiManifests(sub)
+
+	capiManifests, err := cloudinit.GenerateCapiManifests(manifestFS, manifestFileName)
 	if err != nil {
 		return fmt.Errorf("could not parse manifest: %s", err)
 	}
@@ -117,8 +120,13 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 	region := manifestMachine.Spec.Template.Spec.Region
 	image := manifestMachine.Spec.Template.Spec.Image
 	imageType := manifestMachine.Spec.Template.Spec.Type
+	clusterName = clusterSpec.Name
+	if clusterName == "" {
+		return errors.New("cluster name is empty")
+	}
+	klog.Infof("cluster name: %s", clusterName)
 
-	// Define command-line flags for the input variables
+	authorizedKeys := os.Getenv("AUTHORIZED_KEYS")
 	linodeToken := os.Getenv("LINODE_TOKEN")
 
 	if linodeToken == "" {
@@ -158,7 +166,10 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	sub.K8sVersion = controlPlaneSpec.Spec.Version
+	sub := capiYaml.Substitutions{
+		ClusterName: clusterSpec.Name,
+		K8sVersion:  controlPlaneSpec.Spec.Version,
+	}
 	if nodeBalancer.IPv4 == nil {
 		return errors.New("no node IPv4 address on NodeBalancer")
 	}
@@ -171,7 +182,7 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 		APIServerPort:        nodeBalancerConfig.Port,
 	}
 	klog.Infof("k8s version : %s", controlPlaneSpec.Spec.Version)
-	cloudConfig, err := cloudInit.GenerateCloudInit(sub, true)
+	cloudConfig, err := cloudinit.GenerateCloudInit(sub, manifestFS, manifestFileName, true)
 	if err != nil {
 		return err
 	}
