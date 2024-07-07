@@ -7,6 +7,7 @@ import (
 	"embed"
 	_ "embed"
 	"fmt"
+	"github.com/google/uuid"
 	"io"
 	"io/fs"
 	"path/filepath"
@@ -14,7 +15,7 @@ import (
 	"time"
 
 	capiYaml "capi-bootstrap/yaml"
-
+	"github.com/k3s-io/cluster-api-k3s/pkg/k3s"
 	"gopkg.in/yaml.v3"
 )
 
@@ -128,7 +129,11 @@ func generateCapiOperator(values capiYaml.Substitutions) (*capiYaml.InitFile, er
 
 func generateLinodeCCM(values capiYaml.Substitutions) (*capiYaml.InitFile, error) {
 	filePath := "/var/lib/rancher/k3s/server/manifests/linode-ccm.yaml"
-	return constructFile(filePath, "files/linode/linode-ccm.yaml", files, values)
+	localPath := "files/linode/linode-ccm.yaml"
+	if values.Linode.VPC {
+		localPath = "files/linode/linode-ccm-vpc.yaml"
+	}
+	return constructFile(filePath, localPath, files, values)
 }
 
 func generateK3sProvider(values capiYaml.Substitutions) (*capiYaml.InitFile, error) {
@@ -143,7 +148,15 @@ func generateCapiLinode(values capiYaml.Substitutions) (*capiYaml.InitFile, erro
 
 func generateK3sConfig(values capiYaml.Substitutions) (*capiYaml.InitFile, error) {
 	filePath := "/etc/rancher/k3s/config.yaml"
-	return constructFile(filePath, "files/k3s/config.yaml", files, values)
+	config := k3s.GenerateInitControlPlaneConfig(values.Linode.NodeBalancerIP, uuid.NewString(), values.K3s.ServerConfig, values.K3s.AgentConfig)
+	configYaml, err := capiYaml.Marshal(config)
+	if err != nil {
+		return nil, err
+	}
+	return &capiYaml.InitFile{
+		Path:    filePath,
+		Content: string(configYaml),
+	}, nil
 }
 
 func generateCapiPivotMachine(values capiYaml.Substitutions) (*capiYaml.InitFile, error) {

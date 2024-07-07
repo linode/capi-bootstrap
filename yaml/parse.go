@@ -45,6 +45,17 @@ func GetClusterDef(manifests []string) *capi.Cluster {
 	return nil
 }
 
+func GetVPCRef(manifests []string) *capl.LinodeVPC {
+	var vpc capl.LinodeVPC
+	for _, manifest := range manifests {
+		_ = yaml.Unmarshal([]byte(manifest), &vpc)
+		if vpc.Kind == "LinodeVPC" {
+			return &vpc
+		}
+	}
+	return nil
+}
+
 func UpdateManifest(yamlManifest string, values Substitutions) ([]byte, *ParsedManifest, error) {
 	manifests := strings.Split(yamlManifest, "---")
 
@@ -151,4 +162,9 @@ func ParseControlPlane(manifests []string) (*ParsedManifest, error) {
 
 	}
 	return &controlPlaneManifests, nil
+}
+
+// Marshal returns a marshaled yaml document based on the kubernetes library parsing
+func Marshal(obj interface{}) ([]byte, error) {
+	return yaml.Marshal(obj)
 }

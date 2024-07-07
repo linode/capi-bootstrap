@@ -1,5 +1,7 @@
 package yaml
 
+import "github.com/k3s-io/cluster-api-k3s/bootstrap/api/v1beta1"
+
 type InitFile struct {
 	Path        string `yaml:"path"`
 	Content     string `yaml:"content"`
@@ -20,11 +22,18 @@ type LinodeSubstitutions struct {
 	NodeBalancerID       int
 	NodeBalancerConfigID int
 	APIServerPort        int
+	VPC                  bool
 }
 type Substitutions struct {
 	ClusterName string
 	K8sVersion  string
 	Linode      LinodeSubstitutions
+	K3s         K3sSubstitutions
+}
+
+type K3sSubstitutions struct {
+	ServerConfig v1beta1.KThreesServerConfig
+	AgentConfig  v1beta1.KThreesAgentConfig
 }
 
 type ParsedManifest struct {
