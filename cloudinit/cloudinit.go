@@ -7,14 +7,16 @@ import (
 	"embed"
 	_ "embed"
 	"fmt"
-	"github.com/google/uuid"
 	"io"
 	"io/fs"
 	"path/filepath"
 	"text/template"
 	"time"
 
+	"github.com/google/uuid"
+
 	capiYaml "capi-bootstrap/yaml"
+
 	"github.com/k3s-io/cluster-api-k3s/pkg/k3s"
 	"gopkg.in/yaml.v3"
 )
@@ -119,31 +121,31 @@ func GenerateCloudInit(values capiYaml.Substitutions, manifestFS fs.FS, manifest
 
 func generateCertManagerManifest(values capiYaml.Substitutions) (*capiYaml.InitFile, error) {
 	filePath := "/var/lib/rancher/k3s/server/manifests/cert-manager.yaml"
-	return constructFile(filePath, "files/cert-manager.yaml", files, values)
+	return constructFile(filePath, filepath.Join("files", "cert-manager.yaml"), files, values)
 }
 
 func generateCapiOperator(values capiYaml.Substitutions) (*capiYaml.InitFile, error) {
 	filePath := "/var/lib/rancher/k3s/server/manifests/capi-operator.yaml"
-	return constructFile(filePath, "files/capi-operator.yaml", files, values)
+	return constructFile(filePath, filepath.Join("files", "capi-operator.yaml"), files, values)
 }
 
 func generateLinodeCCM(values capiYaml.Substitutions) (*capiYaml.InitFile, error) {
 	filePath := "/var/lib/rancher/k3s/server/manifests/linode-ccm.yaml"
-	localPath := "files/linode/linode-ccm.yaml"
+	localPath := filepath.Join("files", "linode", "linode-ccm.yaml")
 	if values.Linode.VPC {
-		localPath = "files/linode/linode-ccm-vpc.yaml"
+		localPath = filepath.Join("files", "linode", "linode-ccm-vpc.yaml")
 	}
 	return constructFile(filePath, localPath, files, values)
 }
 
 func generateK3sProvider(values capiYaml.Substitutions) (*capiYaml.InitFile, error) {
 	filePath := "/var/lib/rancher/k3s/server/manifests/capi-k3s.yaml"
-	return constructFile(filePath, "files/k3s/capi-k3s.yaml", files, values)
+	return constructFile(filePath, filepath.Join("files", "k3s", "capi-k3s.yaml"), files, values)
 }
 
 func generateCapiLinode(values capiYaml.Substitutions) (*capiYaml.InitFile, error) {
 	filePath := "/var/lib/rancher/k3s/server/manifests/capi-linode.yaml"
-	return constructFile(filePath, "files/linode/capi-linode.yaml", files, values)
+	return constructFile(filePath, filepath.Join("files", "linode", "capi-linode.yaml"), files, values)
 }
 
 func generateK3sConfig(values capiYaml.Substitutions) (*capiYaml.InitFile, error) {
@@ -161,7 +163,7 @@ func generateK3sConfig(values capiYaml.Substitutions) (*capiYaml.InitFile, error
 
 func generateCapiPivotMachine(values capiYaml.Substitutions) (*capiYaml.InitFile, error) {
 	filePath := "/var/lib/rancher/k3s/server/manifests/capi-pivot-machine.yaml"
-	return constructFile(filePath, "files/capi-pivot-machine.yaml", files, values)
+	return constructFile(filePath, filepath.Join("files", "capi-pivot-machine.yaml"), files, values)
 }
 
 func GenerateCapiManifests(manifestFS fs.FS, manifestFile string) (*capiYaml.ParsedManifest, error) {
@@ -182,7 +184,7 @@ func GenerateCapiManifests(manifestFS fs.FS, manifestFile string) (*capiYaml.Par
 
 func generateInitScript(values capiYaml.Substitutions) (*capiYaml.InitFile, error) {
 	filePath := "/tmp/init-cluster.sh"
-	return constructFile(filePath, "files/init-cluster.sh", files, values)
+	return constructFile(filePath, filepath.Join("files", "init-cluster.sh"), files, values)
 }
 
 func templateManifest(filesystem fs.FS, localPath string, templateValues capiYaml.Substitutions) ([]byte, error) {
