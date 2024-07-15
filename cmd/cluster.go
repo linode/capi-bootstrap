@@ -96,8 +96,9 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 	if manifestFileName == "-" {
 		manifestFS = cloudinit.IoFS{Reader: cmd.InOrStdin()}
 	}
+	sub := capiYaml.Substitutions{}
 
-	capiManifests, err := cloudinit.GenerateCapiManifests(manifestFS, manifestFileName)
+	capiManifests, err := cloudinit.GenerateCapiManifests(manifestFS, manifestFileName, sub)
 	if err != nil {
 		return fmt.Errorf("could not parse manifest: %s", err)
 	}
@@ -166,10 +167,9 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	sub := capiYaml.Substitutions{
-		ClusterName: clusterSpec.Name,
-		K8sVersion:  controlPlaneSpec.Spec.Version,
-	}
+	sub.ClusterName = clusterSpec.Name
+	sub.K8sVersion = controlPlaneSpec.Spec.Version
+
 	if nodeBalancer.IPv4 == nil {
 		return errors.New("no node IPv4 address on NodeBalancer")
 	}

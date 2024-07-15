@@ -34,7 +34,7 @@ func GenerateCloudInit(values capiYaml.Substitutions, manifestFS fs.FS, manifest
 		return nil, err
 	}
 
-	capiManifests, err := GenerateCapiManifests(manifestFS, manifestFile)
+	capiManifests, err := GenerateCapiManifests(manifestFS, manifestFile, values)
 	if err != nil {
 		return nil, err
 	}
@@ -166,14 +166,14 @@ func generateCapiPivotMachine(values capiYaml.Substitutions) (*capiYaml.InitFile
 	return constructFile(filePath, filepath.Join("files", "capi-pivot-machine.yaml"), files, values)
 }
 
-func GenerateCapiManifests(manifestFS fs.FS, manifestFile string) (*capiYaml.ParsedManifest, error) {
+func GenerateCapiManifests(manifestFS fs.FS, manifestFile string, values capiYaml.Substitutions) (*capiYaml.ParsedManifest, error) {
 	filePath := "/var/lib/rancher/k3s/server/manifests/capi-manifests.yaml"
-	cloudInitFile, err := constructFile(filePath, manifestFile, manifestFS, capiYaml.Substitutions{})
+	cloudInitFile, err := constructFile(filePath, manifestFile, manifestFS, values)
 	if err != nil {
 		return nil, err
 	}
 	var capiManifests *capiYaml.ParsedManifest
-	initFileContent, capiManifests, err := capiYaml.UpdateManifest(cloudInitFile.Content, capiYaml.Substitutions{})
+	initFileContent, capiManifests, err := capiYaml.UpdateManifest(cloudInitFile.Content, values)
 	if err != nil {
 		return nil, err
 	}

@@ -71,6 +71,9 @@ func runDeleteCluster(cmd *cobra.Command, clusterName string) error {
 	}
 
 	VPCListFilter, err := json.Marshal(map[string]string{"label": clusterName})
+	if err != nil {
+		return fmt.Errorf("could construct VPC filter: %v", err)
+	}
 	vpcs, err := linclient.ListVPCs(ctx, ptr.To(linodego.ListOptions{
 		Filter: string(VPCListFilter),
 	}))
