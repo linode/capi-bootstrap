@@ -17,6 +17,7 @@ import (
 
 	capiYaml "capi-bootstrap/yaml"
 
+	"github.com/k3s-io/cluster-api-k3s/pkg/etcd"
 	"github.com/k3s-io/cluster-api-k3s/pkg/k3s"
 	"gopkg.in/yaml.v3"
 )
@@ -57,6 +58,10 @@ func GenerateCloudInit(values capiYaml.Substitutions, manifestFS fs.FS, manifest
 	if err != nil {
 		return nil, err
 	}
+	k3sManifests, err := generateK3sManifests()
+	if err != nil {
+		return nil, err
+	}
 	capiPivotMachine, err := generateCapiPivotMachine(values)
 	if err != nil {
 		return nil, err
@@ -67,7 +72,7 @@ func GenerateCloudInit(values capiYaml.Substitutions, manifestFS fs.FS, manifest
 		return nil, err
 	}
 	runCmds := []string{
-		fmt.Sprintf("curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION=%q sh -", values.K8sVersion),
+		fmt.Sprintf("curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION=%q sh -s - server", values.K8sVersion),
 		"curl -s -L https://github.com/derailed/k9s/releases/download/v0.32.4/k9s_Linux_amd64.tar.gz | tar -xvz -C /usr/local/bin k9s",
 		`echo "alias k=\"k3s kubectl\"" >> /root/.bashrc`,
 		"echo \"export KUBECONFIG=/etc/rancher/k3s/k3s.yaml\" >> /root/.bashrc",
@@ -82,6 +87,7 @@ func GenerateCloudInit(values capiYaml.Substitutions, manifestFS fs.FS, manifest
 		*capiLinode,
 		*linodeCCM,
 		*k3sConfig,
+		*k3sManifests,
 		*capiPivotMachine,
 		*capiManifests.ManifestFile,
 		*initScript,
@@ -161,6 +167,12 @@ func generateK3sConfig(values capiYaml.Substitutions) (*capiYaml.InitFile, error
 	}, nil
 }
 
+func generateK3sManifests() (*capiYaml.InitFile, error) {
+	return &capiYaml.InitFile{
+		Path:    etcd.EtcdProxyDaemonsetYamlLocation,
+		Content: etcd.EtcdProxyDaemonsetYaml,
+	}, nil
+}
 func generateCapiPivotMachine(values capiYaml.Substitutions) (*capiYaml.InitFile, error) {
 	filePath := "/var/lib/rancher/k3s/server/manifests/capi-pivot-machine.yaml"
 	return constructFile(filePath, filepath.Join("files", "capi-pivot-machine.yaml"), files, values)
