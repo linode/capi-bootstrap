@@ -37,3 +37,4 @@ terraform.rc
 .envrc
 bin
 vendor
+*-kubeconfig
