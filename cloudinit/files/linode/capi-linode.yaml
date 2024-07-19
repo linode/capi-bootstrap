@@ -11,7 +11,7 @@ metadata:
   namespace: capl-system
 type: Opaque
 stringData:
-  LINODE_TOKEN: "{{{ .Linode.Token }}}"
+  LINODE_TOKEN: "[[[ .Linode.Token ]]]"
 ---
 apiVersion: operator.cluster.x-k8s.io/v1alpha2
 kind: InfrastructureProvider

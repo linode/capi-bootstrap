@@ -26,5 +26,5 @@ metadata:
   name: linode-token-region
   namespace: kube-system
 stringData:
-  apiToken: "{{{ .Linode.Token }}}"
+  apiToken: "[[[ .Linode.Token ]]]"
   region: "{{ ds.meta_data.region }}"

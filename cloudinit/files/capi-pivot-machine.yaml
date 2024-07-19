@@ -3,31 +3,31 @@ apiVersion: cluster.x-k8s.io/v1beta1
 kind: Machine
 metadata:
   labels:
-    cluster.x-k8s.io/cluster-name: "{{{ .ClusterName }}}"
+    cluster.x-k8s.io/cluster-name: "[[[ .ClusterName ]]]"
     cluster.x-k8s.io/control-plane: ""
     cluster.x-k8s.io/control-plane-name: ""
-  name: "{{{ .ClusterName }}}-bootstrap"
+  name: "[[[ .ClusterName ]]]-bootstrap"
   namespace: default
 spec:
   bootstrap:
-    dataSecretName: linode-{{{ .ClusterName }}}-crs-0
+    dataSecretName: linode-[[[ .ClusterName ]]]-crs-0
   infrastructureRef:
     apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
     kind: LinodeMachine
-    name: "{{{ .ClusterName }}}-bootstrap"
+    name: "[[[ .ClusterName ]]]-bootstrap"
     namespace: default
-  clusterName: "{{{ .ClusterName }}}"
+  clusterName: "[[[ .ClusterName ]]]"
   providerID: linode://{{ ds.meta_data.id }}
-  version: "{{{ .K8sVersion }}}"
+  version: "[[[ .K8sVersion ]]]"
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
 kind: LinodeMachine
 metadata:
   labels:
-    cluster.x-k8s.io/cluster-name: "{{{ .ClusterName }}}"
+    cluster.x-k8s.io/cluster-name: "[[[ .ClusterName ]]]"
     cluster.x-k8s.io/control-plane: ""
     cluster.x-k8s.io/control-plane-name: ""
-  name: "{{{ .ClusterName }}}-bootstrap"
+  name: "[[[ .ClusterName ]]]-bootstrap"
   namespace: default
 spec:
   image: linode/ubuntu22.04

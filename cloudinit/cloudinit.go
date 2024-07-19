@@ -10,6 +10,7 @@ import (
 	"io"
 	"io/fs"
 	"path/filepath"
+	"strings"
 	"text/template"
 	"time"
 
@@ -35,7 +36,7 @@ func GenerateCloudInit(values capiYaml.Substitutions, manifestFS fs.FS, manifest
 		return nil, err
 	}
 
-	capiManifests, err := GenerateCapiManifests(manifestFS, manifestFile, values)
+	capiManifests, err := GenerateCapiManifests(manifestFS, manifestFile, values, true)
 	if err != nil {
 		return nil, err
 	}
@@ -127,12 +128,12 @@ func GenerateCloudInit(values capiYaml.Substitutions, manifestFS fs.FS, manifest
 
 func generateCertManagerManifest(values capiYaml.Substitutions) (*capiYaml.InitFile, error) {
 	filePath := "/var/lib/rancher/k3s/server/manifests/cert-manager.yaml"
-	return constructFile(filePath, filepath.Join("files", "cert-manager.yaml"), files, values)
+	return constructFile(filePath, filepath.Join("files", "cert-manager.yaml"), files, values, false)
 }
 
 func generateCapiOperator(values capiYaml.Substitutions) (*capiYaml.InitFile, error) {
 	filePath := "/var/lib/rancher/k3s/server/manifests/capi-operator.yaml"
-	return constructFile(filePath, filepath.Join("files", "capi-operator.yaml"), files, values)
+	return constructFile(filePath, filepath.Join("files", "capi-operator.yaml"), files, values, false)
 }
 
 func generateLinodeCCM(values capiYaml.Substitutions) (*capiYaml.InitFile, error) {
@@ -141,17 +142,17 @@ func generateLinodeCCM(values capiYaml.Substitutions) (*capiYaml.InitFile, error
 	if values.Linode.VPC {
 		localPath = filepath.Join("files", "linode", "linode-ccm-vpc.yaml")
 	}
-	return constructFile(filePath, localPath, files, values)
+	return constructFile(filePath, localPath, files, values, false)
 }
 
 func generateK3sProvider(values capiYaml.Substitutions) (*capiYaml.InitFile, error) {
 	filePath := "/var/lib/rancher/k3s/server/manifests/capi-k3s.yaml"
-	return constructFile(filePath, filepath.Join("files", "k3s", "capi-k3s.yaml"), files, values)
+	return constructFile(filePath, filepath.Join("files", "k3s", "capi-k3s.yaml"), files, values, false)
 }
 
 func generateCapiLinode(values capiYaml.Substitutions) (*capiYaml.InitFile, error) {
 	filePath := "/var/lib/rancher/k3s/server/manifests/capi-linode.yaml"
-	return constructFile(filePath, filepath.Join("files", "linode", "capi-linode.yaml"), files, values)
+	return constructFile(filePath, filepath.Join("files", "linode", "capi-linode.yaml"), files, values, false)
 }
 
 func generateK3sConfig(values capiYaml.Substitutions) (*capiYaml.InitFile, error) {
@@ -175,12 +176,12 @@ func generateK3sManifests() (*capiYaml.InitFile, error) {
 }
 func generateCapiPivotMachine(values capiYaml.Substitutions) (*capiYaml.InitFile, error) {
 	filePath := "/var/lib/rancher/k3s/server/manifests/capi-pivot-machine.yaml"
-	return constructFile(filePath, filepath.Join("files", "capi-pivot-machine.yaml"), files, values)
+	return constructFile(filePath, filepath.Join("files", "capi-pivot-machine.yaml"), files, values, false)
 }
 
-func GenerateCapiManifests(manifestFS fs.FS, manifestFile string, values capiYaml.Substitutions) (*capiYaml.ParsedManifest, error) {
+func GenerateCapiManifests(manifestFS fs.FS, manifestFile string, values capiYaml.Substitutions, escapeYaml bool) (*capiYaml.ParsedManifest, error) {
 	filePath := "/var/lib/rancher/k3s/server/manifests/capi-manifests.yaml"
-	cloudInitFile, err := constructFile(filePath, manifestFile, manifestFS, values)
+	cloudInitFile, err := constructFile(filePath, manifestFile, manifestFS, values, escapeYaml)
 	if err != nil {
 		return nil, err
 	}
@@ -196,14 +197,26 @@ func GenerateCapiManifests(manifestFS fs.FS, manifestFile string, values capiYam
 
 func generateInitScript(values capiYaml.Substitutions) (*capiYaml.InitFile, error) {
 	filePath := "/tmp/init-cluster.sh"
-	return constructFile(filePath, filepath.Join("files", "init-cluster.sh"), files, values)
+	return constructFile(filePath, filepath.Join("files", "init-cluster.sh"), files, values, false)
 }
 
-func templateManifest(filesystem fs.FS, localPath string, templateValues capiYaml.Substitutions) ([]byte, error) {
+func templateManifest(filesystem fs.FS, localPath string, templateValues capiYaml.Substitutions, escapeFile bool) ([]byte, error) {
 	var err error
 	tmpl := template.New(filepath.Base(localPath))
-	tmpl.Delims("{{{", "}}}")
-	tmpl, err = tmpl.ParseFS(filesystem, localPath)
+	tmpl.Delims("[[[", "]]]")
+	rawYaml, err := fs.ReadFile(filesystem, localPath)
+	if err != nil {
+		return nil, fmt.Errorf("error reading file: %s", err)
+	}
+	escapedYaml := string(rawYaml)
+	if escapeFile {
+		// convert '{{ }}' to "{{ }}" then escape template
+		escapedYaml = strings.ReplaceAll(string(rawYaml), "'{{", "\"{{")
+		escapedYaml = strings.ReplaceAll(escapedYaml, "}}'", "}}\"")
+		escapedYaml = strings.ReplaceAll(escapedYaml, "{{", "{{ '{{")
+		escapedYaml = strings.ReplaceAll(escapedYaml, "}}", "}}' }}")
+	}
+	tmpl, err = tmpl.Parse(escapedYaml)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse template %s, %s", localPath, err)
 	}
@@ -217,8 +230,8 @@ func templateManifest(filesystem fs.FS, localPath string, templateValues capiYam
 	return buf.Bytes(), nil
 }
 
-func constructFile(filePath string, localPath string, filesystem fs.FS, values capiYaml.Substitutions) (*capiYaml.InitFile, error) {
-	manifest, err := templateManifest(filesystem, localPath, values)
+func constructFile(filePath string, localPath string, filesystem fs.FS, values capiYaml.Substitutions, escapeYaml bool) (*capiYaml.InitFile, error) {
+	manifest, err := templateManifest(filesystem, localPath, values, escapeYaml)
 	if err != nil {
 		return nil, err
 	}

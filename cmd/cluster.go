@@ -98,9 +98,9 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 	}
 	sub := capiYaml.Substitutions{}
 
-	capiManifests, err := cloudinit.GenerateCapiManifests(manifestFS, manifestFileName, sub)
+	capiManifests, err := cloudinit.GenerateCapiManifests(manifestFS, manifestFileName, sub, false)
 	if err != nil {
-		return fmt.Errorf("could not parse manifest: %s", err)
+		return fmt.Errorf("could not parse manifest %s: %s", manifestFileName, err)
 	}
 
 	manifests := strings.Split(capiManifests.ManifestFile.Content, "---")

@@ -36,3 +36,4 @@ terraform.rc
 .idea
 .envrc
 bin
+vendor

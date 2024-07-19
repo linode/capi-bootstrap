@@ -5,15 +5,16 @@ import (
 
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
 
-	capl "github.com/linode/cluster-api-provider-linode/api/v1alpha1"
+	caplv1alpha1 "github.com/linode/cluster-api-provider-linode/api/v1alpha1"
+	caplv1alpha2 "github.com/linode/cluster-api-provider-linode/api/v1alpha2"
 
 	k3s "github.com/k3s-io/cluster-api-k3s/controlplane/api/v1beta1"
 
 	"sigs.k8s.io/yaml"
 )
 
-func GetMachineDef(manifests []string, machineTemplateType string) *capl.LinodeMachineTemplate {
-	var template capl.LinodeMachineTemplate
+func GetMachineDef(manifests []string, machineTemplateType string) *caplv1alpha1.LinodeMachineTemplate {
+	var template caplv1alpha1.LinodeMachineTemplate
 	for _, manifest := range manifests {
 		_ = yaml.Unmarshal([]byte(manifest), &template)
 		if template.Kind == machineTemplateType {
@@ -45,8 +46,8 @@ func GetClusterDef(manifests []string) *capi.Cluster {
 	return nil
 }
 
-func GetVPCRef(manifests []string) *capl.LinodeVPC {
-	var vpc capl.LinodeVPC
+func GetVPCRef(manifests []string) *caplv1alpha1.LinodeVPC {
+	var vpc caplv1alpha1.LinodeVPC
 	for _, manifest := range manifests {
 		_ = yaml.Unmarshal([]byte(manifest), &vpc)
 		if vpc.Kind == "LinodeVPC" {
@@ -100,7 +101,7 @@ func UpdateCluster(manifests []string) error {
 
 func UpdateLinodeCluster(manifests []string, values Substitutions) error {
 	var LinodeClusterIndex int
-	var LinodeCluster capl.LinodeCluster
+	var LinodeCluster caplv1alpha2.LinodeCluster
 	for i, manifest := range manifests {
 		err := yaml.Unmarshal([]byte(manifest), &LinodeCluster)
 		if err != nil {
@@ -111,11 +112,11 @@ func UpdateLinodeCluster(manifests []string, values Substitutions) error {
 				Host: values.Linode.NodeBalancerIP,
 				Port: int32(values.Linode.APIServerPort),
 			}
-			LinodeCluster.Spec.Network = capl.NetworkSpec{
-				LoadBalancerType:     "NodeBalancer",
-				LoadBalancerPort:     6443,
-				NodeBalancerID:       &values.Linode.NodeBalancerID,
-				NodeBalancerConfigID: &values.Linode.NodeBalancerConfigID,
+			LinodeCluster.Spec.Network = caplv1alpha2.NetworkSpec{
+				LoadBalancerType:              "NodeBalancer",
+				ApiserverLoadBalancerPort:     6443,
+				NodeBalancerID:                &values.Linode.NodeBalancerID,
+				ApiserverNodeBalancerConfigID: &values.Linode.NodeBalancerConfigID,
 			}
 			LinodeClusterIndex = i
 			break
