@@ -1,0 +1,40 @@
+name: Build and Tests
+
+on:
+  pull_request:
+    paths-ignore:
+      - "docs/**"
+      - "examples/**"
+      - "README.md"
+  push:
+    branches:
+      - main
+  release:
+    types: [published]
+  schedule:
+    - cron: "0 2 * * *" # every day at 2am UTC
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit_test__lint__build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        go-version: ["1.22", "stable"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+      - name: Lint
+        run: make lint
+      - name: Test
+        run: make test
+      - name: Build
+        run: make build
