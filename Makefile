@@ -29,7 +29,7 @@ fmt:
 
 .PHONY: lint
 lint: golangci-lint
-	$(GOLANGCI_LINT) run
+	$(GOLANGCI_LINT) --timeout 10m run
 
 .PHONY: golangci-lint
 golangci-lint: $(GOLANGCI_LINT)

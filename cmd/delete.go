@@ -69,6 +69,25 @@ func runDeleteCluster(cmd *cobra.Command, clusterName string) error {
 			klog.Infof("  Label: %s, ID: %d\n", instance.Label, instance.ID)
 		}
 	}
+
+	VPCListFilter, err := json.Marshal(map[string]string{"label": clusterName})
+	if err != nil {
+		return fmt.Errorf("could construct VPC filter: %v", err)
+	}
+	vpcs, err := linclient.ListVPCs(ctx, ptr.To(linodego.ListOptions{
+		Filter: string(VPCListFilter),
+	}))
+	if err != nil {
+		return fmt.Errorf("could not list VPCs: %v", err)
+	}
+
+	if len(vpcs) > 0 {
+		klog.Info("Will delete vpc:\n")
+		for _, vpc := range vpcs {
+			klog.Infof("  Label: %s, ID: %d\n", vpc.Label, vpc.ID)
+		}
+	}
+
 	nodeBal, err := linclient.ListNodeBalancers(ctx, linodego.NewListOptions(1, string(ListFilter)))
 	if err != nil {
 		return err
@@ -98,16 +117,23 @@ func runDeleteCluster(cmd *cobra.Command, clusterName string) error {
 
 	for _, instance := range instances {
 		if err := linclient.DeleteInstance(ctx, instance.ID); err != nil {
-			return fmt.Errorf("Could not delete instance %s: %v", instance.Label, err)
+			return fmt.Errorf("could not delete instance %s: %v", instance.Label, err)
 		}
 		klog.Infof("  Deleted Instance %s\n", instance.Label)
 	}
 
 	if len(nodeBal) == 1 {
 		if err := linclient.DeleteNodeBalancer(ctx, nodeBal[0].ID); err != nil {
-			return fmt.Errorf("Could not delete instance %s: %v", *nodeBal[0].Label, err)
+			return fmt.Errorf("could not delete nodebalancer %s: %v", *nodeBal[0].Label, err)
 		}
 		klog.Infof("  Deleted NodeBalancer %s\n", *nodeBal[0].Label)
+	}
+
+	if len(vpcs) == 1 {
+		if err := linclient.DeleteVPC(ctx, vpcs[0].ID); err != nil {
+			return fmt.Errorf("could not delete vpc %s: %v", *nodeBal[0].Label, err)
+		}
+		klog.Infof("  Deleted VPC %s\n", *nodeBal[0].Label)
 	}
 
 	return nil

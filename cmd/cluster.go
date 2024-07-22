@@ -87,19 +87,20 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 		clusterName = args[0]
 	}
 
-	manifestFileName, err := cmd.Flags().GetString("manifest")
+	manifestFile, err := cmd.Flags().GetString("manifest")
 	if err != nil {
 		return err
 	}
-
-	manifestFS := os.DirFS(filepath.Base(manifestFileName))
+	manifestFileName := filepath.Base(manifestFile)
+	manifestFS := os.DirFS(filepath.Dir(manifestFile))
 	if manifestFileName == "-" {
 		manifestFS = cloudinit.IoFS{Reader: cmd.InOrStdin()}
 	}
+	sub := capiYaml.Substitutions{}
 
-	capiManifests, err := cloudinit.GenerateCapiManifests(manifestFS, manifestFileName)
+	capiManifests, err := cloudinit.GenerateCapiManifests(manifestFS, manifestFileName, sub, false)
 	if err != nil {
-		return fmt.Errorf("could not parse manifest: %s", err)
+		return fmt.Errorf("could not parse manifest %s: %s", manifestFileName, err)
 	}
 
 	manifests := strings.Split(capiManifests.ManifestFile.Content, "---")
@@ -166,10 +167,9 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	sub := capiYaml.Substitutions{
-		ClusterName: clusterSpec.Name,
-		K8sVersion:  controlPlaneSpec.Spec.Version,
-	}
+	sub.ClusterName = clusterSpec.Name
+	sub.K8sVersion = controlPlaneSpec.Spec.Version
+
 	if nodeBalancer.IPv4 == nil {
 		return errors.New("no node IPv4 address on NodeBalancer")
 	}
@@ -180,6 +180,14 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 		NodeBalancerID:       nodeBalancer.ID,
 		NodeBalancerConfigID: nodeBalancerConfig.ID,
 		APIServerPort:        nodeBalancerConfig.Port,
+	}
+	sub.K3s = capiYaml.K3sSubstitutions{
+		ServerConfig: controlPlaneSpec.Spec.KThreesConfigSpec.ServerConfig,
+		AgentConfig:  controlPlaneSpec.Spec.KThreesConfigSpec.AgentConfig,
+	}
+	vpcDef := capiYaml.GetVPCRef(manifests)
+	if vpcDef != nil {
+		sub.Linode.VPC = true
 	}
 	klog.Infof("k8s version : %s", controlPlaneSpec.Spec.Version)
 	cloudConfig, err := cloudinit.GenerateCloudInit(sub, manifestFS, manifestFileName, true)
@@ -197,6 +205,37 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 		PrivateIP: true,
 		Metadata:  &linodego.InstanceMetadataOptions{UserData: base64.StdEncoding.EncodeToString(cloudConfig)},
 	}
+
+	if vpcDef != nil {
+		var vpc *linodego.VPC
+		var vpcSubnets []linodego.VPCSubnetCreateOptions
+		for _, subnet := range vpcDef.Spec.Subnets {
+			vpcSubnets = append(vpcSubnets, linodego.VPCSubnetCreateOptions{
+				Label: subnet.Label,
+				IPv4:  subnet.IPv4,
+			})
+		}
+		vpc, err = linClient.CreateVPC(ctx, linodego.VPCCreateOptions{
+			Label:       vpcDef.Name,
+			Description: vpcDef.Spec.Description,
+			Region:      vpcDef.Spec.Region,
+			Subnets:     vpcSubnets,
+		})
+		if err != nil {
+			return errors.New("Unable to create VPC: " + err.Error())
+		}
+		natAny := "any"
+		createOptions.Interfaces = []linodego.InstanceConfigInterfaceCreateOptions{
+			{
+				Purpose:  linodego.InterfacePurposeVPC,
+				Primary:  true,
+				SubnetID: &vpc.Subnets[0].ID,
+				IPv4: &linodego.VPCIPv4{
+					NAT1To1: &natAny,
+				}},
+			{Purpose: linodego.InterfacePurposePublic}}
+	}
+
 	if authorizedKeys != "" {
 		createOptions.AuthorizedKeys = []string{authorizedKeys}
 	}
