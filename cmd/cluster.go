@@ -1,22 +1,18 @@
 package cmd
 
 import (
-	"context"
-	"encoding/base64"
-	"encoding/json"
+	"capi-bootstrap/providers"
+	"capi-bootstrap/providers/controlplane"
+	"capi-bootstrap/providers/infrastructure"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"capi-bootstrap/client"
 	"capi-bootstrap/cloudinit"
 	capiYaml "capi-bootstrap/yaml"
 
-	"github.com/google/uuid"
-
-	"github.com/linode/linodego"
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
 )
@@ -78,195 +74,68 @@ func init() {
 }
 
 func runBootstrapCluster(cmd *cobra.Command, args []string) error {
-	ctx := context.Background()
-	var clusterName string
-	if os.Getenv("CLUSTER_NAME") != "" {
-		clusterName = os.Getenv("CLUSTER_NAME")
-	}
-	if len(args) != 0 {
-		clusterName = args[0]
-	}
+	ctx := cmd.Context()
 
 	manifestFile, err := cmd.Flags().GetString("manifest")
 	if err != nil {
 		return err
 	}
 	manifestFileName := filepath.Base(manifestFile)
-	manifestFS := os.DirFS(filepath.Dir(manifestFile))
+	values := providers.Values{ManifestFile: manifestFileName}
+	values.ManifestFS = os.DirFS(filepath.Dir(manifestFile))
 	if manifestFileName == "-" {
-		manifestFS = cloudinit.IoFS{Reader: cmd.InOrStdin()}
+		values.ManifestFS = cloudinit.IoFS{Reader: cmd.InOrStdin()}
 	}
-	sub := capiYaml.Substitutions{}
 
-	capiManifests, err := cloudinit.GenerateCapiManifests(manifestFS, manifestFileName, sub, false)
+	capiManifests, err := cloudinit.GenerateCapiManifests(ctx, values, nil, nil, false)
 	if err != nil {
-		return fmt.Errorf("could not parse manifest %s: %s", manifestFileName, err)
+		return fmt.Errorf("could not parse manifest %s: %s", values.ManifestFile, err)
 	}
 
-	manifests := strings.Split(capiManifests.ManifestFile.Content, "---")
+	values.Manifests = strings.Split(capiManifests.ManifestFile.Content, "---")
 
-	clusterSpec := capiYaml.GetClusterDef(manifests)
+	clusterSpec := capiYaml.GetClusterDef(values.Manifests)
 	if clusterSpec == nil {
 		return errors.New("cluster not found")
 	}
-	controlPlaneSpec := capiYaml.GetControlPlaneDef(manifests, clusterSpec.Spec.ControlPlaneRef.Kind)
-	if controlPlaneSpec == nil {
-		return errors.New("control plane not found")
+	infrastructureProvider := infrastructure.NewInfrastructureProvider(clusterSpec.Spec.InfrastructureRef.Kind)
+	if infrastructureProvider == nil {
+		return errors.New("infrastructure provider not found for " + clusterSpec.Spec.InfrastructureRef.Kind)
 	}
-	manifestMachine := capiYaml.GetMachineDef(manifests, controlPlaneSpec.Spec.InfrastructureTemplate.Kind)
-	if manifestMachine == nil {
-		return errors.New("machine not found")
+	ControlPlaneProvider := controlplane.NewControlPlaneProvider(clusterSpec.Spec.ControlPlaneRef.Kind)
+	if ControlPlaneProvider == nil {
+		return errors.New("ControlPlane provider not found for " + clusterSpec.Spec.ControlPlaneRef.Kind)
 	}
-
-	region := manifestMachine.Spec.Template.Spec.Region
-	image := manifestMachine.Spec.Template.Spec.Image
-	imageType := manifestMachine.Spec.Template.Spec.Type
-	clusterName = clusterSpec.Name
-	if clusterName == "" {
+	values.ClusterName = clusterSpec.Name
+	if values.ClusterName == "" {
 		return errors.New("cluster name is empty")
 	}
-	klog.Infof("cluster name: %s", clusterName)
+	klog.Infof("cluster name: %s", values.ClusterName)
 
-	authorizedKeys := os.Getenv("AUTHORIZED_KEYS")
-	linodeToken := os.Getenv("LINODE_TOKEN")
-
-	if linodeToken == "" {
-		return errors.New("linode_token is required")
-	}
-
-	linClient := client.LinodeClient(linodeToken, ctx)
-	nbListFilter, err := json.Marshal(map[string]string{"tags": clusterName})
-	if err != nil {
+	if err := ControlPlaneProvider.PreDeploy(ctx, &values); err != nil {
 		return err
 	}
-	existingNB, err := linClient.ListNodeBalancers(ctx, linodego.NewListOptions(1, string(nbListFilter)))
-	if err != nil {
-		return err
-	}
-	if len(existingNB) != 0 {
-		return err
-	}
-	// Create a NodeBalancer
-	nodeBalancer, err := linClient.CreateNodeBalancer(ctx, linodego.NodeBalancerCreateOptions{
-		Label:  &clusterName,
-		Region: region,
-		Tags:   []string{clusterName},
-	})
-	if err != nil {
-		return err
-	}
-	klog.Infof("Created NodeBalancer: %v\n", *nodeBalancer.Label)
 
-	// Create a NodeBalancer Config
-	nodeBalancerConfig, err := linClient.CreateNodeBalancerConfig(ctx, nodeBalancer.ID, linodego.NodeBalancerConfigCreateOptions{
-		Port:      6443,
-		Protocol:  "tcp",
-		Algorithm: "roundrobin",
-		Check:     "connection",
-	})
-	if err != nil {
+	if err := infrastructureProvider.PreCmd(ctx, &values); err != nil {
 		return err
 	}
-	sub.ClusterName = clusterSpec.Name
-	sub.K8sVersion = controlPlaneSpec.Spec.Version
 
-	if nodeBalancer.IPv4 == nil {
-		return errors.New("no node IPv4 address on NodeBalancer")
+	if err := infrastructureProvider.PreDeploy(ctx, &values); err != nil {
+		return err
 	}
-	sub.Linode = capiYaml.LinodeSubstitutions{
-		Token:                linodeToken,
-		AuthorizedKeys:       authorizedKeys,
-		NodeBalancerIP:       *nodeBalancer.IPv4,
-		NodeBalancerID:       nodeBalancer.ID,
-		NodeBalancerConfigID: nodeBalancerConfig.ID,
-		APIServerPort:        nodeBalancerConfig.Port,
-	}
-	sub.K3s = capiYaml.K3sSubstitutions{
-		ServerConfig: controlPlaneSpec.Spec.KThreesConfigSpec.ServerConfig,
-		AgentConfig:  controlPlaneSpec.Spec.KThreesConfigSpec.AgentConfig,
-	}
-	vpcDef := capiYaml.GetVPCRef(manifests)
-	if vpcDef != nil {
-		sub.Linode.VPC = true
-	}
-	klog.Infof("k8s version : %s", controlPlaneSpec.Spec.Version)
-	cloudConfig, err := cloudinit.GenerateCloudInit(sub, manifestFS, manifestFileName, true)
+
+	cloudConfig, err := cloudinit.GenerateCloudInit(ctx, values, infrastructureProvider, ControlPlaneProvider, true)
 	if err != nil {
 		return err
 	}
 
-	createOptions := linodego.InstanceCreateOptions{
-		Label:     clusterName + "-bootstrap",
-		Image:     image,
-		Region:    region,
-		Type:      imageType,
-		RootPass:  uuid.NewString(),
-		Tags:      []string{clusterName},
-		PrivateIP: true,
-		Metadata:  &linodego.InstanceMetadataOptions{UserData: base64.StdEncoding.EncodeToString(cloudConfig)},
-	}
-
-	if vpcDef != nil {
-		var vpc *linodego.VPC
-		var vpcSubnets []linodego.VPCSubnetCreateOptions
-		for _, subnet := range vpcDef.Spec.Subnets {
-			vpcSubnets = append(vpcSubnets, linodego.VPCSubnetCreateOptions{
-				Label: subnet.Label,
-				IPv4:  subnet.IPv4,
-			})
-		}
-		vpc, err = linClient.CreateVPC(ctx, linodego.VPCCreateOptions{
-			Label:       vpcDef.Name,
-			Description: vpcDef.Spec.Description,
-			Region:      vpcDef.Spec.Region,
-			Subnets:     vpcSubnets,
-		})
-		if err != nil {
-			return errors.New("Unable to create VPC: " + err.Error())
-		}
-		natAny := "any"
-		createOptions.Interfaces = []linodego.InstanceConfigInterfaceCreateOptions{
-			{
-				Purpose:  linodego.InterfacePurposeVPC,
-				Primary:  true,
-				SubnetID: &vpc.Subnets[0].ID,
-				IPv4: &linodego.VPCIPv4{
-					NAT1To1: &natAny,
-				}},
-			{Purpose: linodego.InterfacePurposePublic}}
-	}
-
-	if authorizedKeys != "" {
-		createOptions.AuthorizedKeys = []string{authorizedKeys}
-	}
-
-	// Create a Linode Instance
-	instance, err := linClient.CreateInstance(ctx, createOptions)
-	if err != nil {
+	if err := infrastructureProvider.Deploy(ctx, &values, cloudConfig); err != nil {
 		return err
 	}
 
-	klog.Infof("Created Linode Instance: %v\n", instance.Label)
-
-	var privateIP string
-
-	for _, ip := range instance.IPv4 {
-		if ip.IsPrivate() {
-			privateIP = ip.String()
-		}
-	}
-
-	// Create a NodeBalancer Node
-	node, err := linClient.CreateNodeBalancerNode(ctx, nodeBalancer.ID, nodeBalancerConfig.ID, linodego.NodeBalancerNodeCreateOptions{
-		Address: fmt.Sprintf("%s:6443", privateIP),
-		Label:   clusterName + "-bootstrap",
-		Weight:  100,
-	})
-	if err != nil {
+	if err := infrastructureProvider.PostDeploy(ctx, &values); err != nil {
 		return err
 	}
 
-	klog.Infof("Created NodeBalancer Node: %v\n", node.Label)
-	klog.Infof("Bootstrap Node IP: %s\n", instance.IPv4[0].String())
 	return nil
 }
