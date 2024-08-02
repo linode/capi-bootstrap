@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	Linode "capi-bootstrap/providers/infrastructure/linode"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -9,8 +10,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-
-	"capi-bootstrap/client"
 
 	"k8s.io/klog/v2"
 
@@ -77,7 +76,7 @@ func getKubeconfigDirect(cmd *cobra.Command, clusterName string) (string, error)
 		return "", errors.New("linode_token is required")
 	}
 
-	linClient := client.LinodeClient(linodeToken, cmd.Context())
+	linClient := Linode.Client(linodeToken, cmd.Context())
 	instanceListFilter, err := json.Marshal(map[string]string{"tags": clusterName})
 	if err != nil {
 		return "", err

@@ -1,5 +1,5 @@
 #!/bin/bash
-sed -i "s/127.0.0.1/[[[ .Linode.NodeBalancerIP ]]]/" /etc/rancher/k3s/k3s.yaml
+sed -i "s/127.0.0.1/[[[ .ClusterEndpoint ]]]/" /etc/rancher/k3s/k3s.yaml
 k3s kubectl create secret generic [[[ .ClusterName ]]]-kubeconfig --type=cluster.x-k8s.io/secret --from-file=value=/etc/rancher/k3s/k3s.yaml --dry-run=client -oyaml > /var/lib/rancher/k3s/server/manifests/cluster-kubeconfig.yaml
 k3s kubectl create secret generic [[[ .ClusterName ]]]-ca --type=cluster.x-k8s.io/secret --from-file=tls.crt=/var/lib/rancher/k3s/server/tls/server-ca.crt --from-file=tls.key=/var/lib/rancher/k3s/server/tls/server-ca.key --dry-run=client -oyaml > /var/lib/rancher/k3s/server/manifests/cluster-ca.yaml
 k3s kubectl create secret generic [[[ .ClusterName ]]]-cca --type=cluster.x-k8s.io/secret --from-file=tls.crt=/var/lib/rancher/k3s/server/tls/client-ca.crt --from-file=tls.key=/var/lib/rancher/k3s/server/tls/client-ca.key --dry-run=client -oyaml > /var/lib/rancher/k3s/server/manifests/cluster-cca.yaml

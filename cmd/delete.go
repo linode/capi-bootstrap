@@ -1,18 +1,11 @@
 package cmd
 
 import (
-	"context"
-	"encoding/json"
+	"capi-bootstrap/providers"
+	"capi-bootstrap/providers/infrastructure"
 	"errors"
-	"fmt"
-	"os"
 
-	"capi-bootstrap/client"
-
-	"github.com/linode/linodego"
 	"github.com/spf13/cobra"
-	"k8s.io/klog/v2"
-	"k8s.io/utils/ptr"
 )
 
 // deleteCmd represents the delete command
@@ -43,98 +36,14 @@ func init() {
 }
 
 func runDeleteCluster(cmd *cobra.Command, clusterName string) error {
-	ctx := context.Background()
-	linodeToken := os.Getenv("LINODE_TOKEN")
-
-	if linodeToken == "" {
-		return errors.New("linode_token is required")
-	}
-
-	linclient := client.LinodeClient(linodeToken, ctx)
-	ListFilter, err := json.Marshal(map[string]string{"tags": clusterName})
+	ctx := cmd.Context()
+	var values providers.Values
+	values.ClusterName = clusterName
+	infrastructureProvider := infrastructure.NewInfrastructureProvider("LinodeCluster")
+	err := infrastructureProvider.PreCmd(ctx, &values)
 	if err != nil {
 		return err
 	}
 
-	instances, err := linclient.ListInstances(ctx, ptr.To(linodego.ListOptions{
-		Filter: string(ListFilter),
-	}))
-	if err != nil {
-		return fmt.Errorf("could not list instances: %v", err)
-	}
-
-	if len(instances) > 0 {
-		klog.Info("Will delete instances:\n")
-		for _, instance := range instances {
-			klog.Infof("  Label: %s, ID: %d\n", instance.Label, instance.ID)
-		}
-	}
-
-	VPCListFilter, err := json.Marshal(map[string]string{"label": clusterName})
-	if err != nil {
-		return fmt.Errorf("could construct VPC filter: %v", err)
-	}
-	vpcs, err := linclient.ListVPCs(ctx, ptr.To(linodego.ListOptions{
-		Filter: string(VPCListFilter),
-	}))
-	if err != nil {
-		return fmt.Errorf("could not list VPCs: %v", err)
-	}
-
-	if len(vpcs) > 0 {
-		klog.Info("Will delete vpc:\n")
-		for _, vpc := range vpcs {
-			klog.Infof("  Label: %s, ID: %d\n", vpc.Label, vpc.ID)
-		}
-	}
-
-	nodeBal, err := linclient.ListNodeBalancers(ctx, linodego.NewListOptions(1, string(ListFilter)))
-	if err != nil {
-		return err
-	}
-	switch len(nodeBal) {
-	case 1:
-		klog.Infof("Will delete NodeBalancer:\n")
-		klog.Infof("  Label: %s, ID: %d\n", *nodeBal[0].Label, nodeBal[0].ID)
-
-	case 0:
-		klog.Infof("No NodeBalancers found for deletion")
-	default:
-		klog.Fatalf("More than one NodeBalaner found for deletion, cannot delete")
-	}
-	var confirm string
-	if !cmd.Flags().Changed("force") {
-		klog.Info("Would you like to delete these resources(y/n): ")
-		if _, err := fmt.Scanln(&confirm); err != nil {
-			return errors.New("error trying to read user input")
-		}
-		if confirm != "y" && confirm != "yes" {
-			return nil
-		}
-	}
-
-	klog.Info("Deleting resources:")
-
-	for _, instance := range instances {
-		if err := linclient.DeleteInstance(ctx, instance.ID); err != nil {
-			return fmt.Errorf("could not delete instance %s: %v", instance.Label, err)
-		}
-		klog.Infof("  Deleted Instance %s\n", instance.Label)
-	}
-
-	if len(nodeBal) == 1 {
-		if err := linclient.DeleteNodeBalancer(ctx, nodeBal[0].ID); err != nil {
-			return fmt.Errorf("could not delete nodebalancer %s: %v", *nodeBal[0].Label, err)
-		}
-		klog.Infof("  Deleted NodeBalancer %s\n", *nodeBal[0].Label)
-	}
-
-	if len(vpcs) == 1 {
-		if err := linclient.DeleteVPC(ctx, vpcs[0].ID); err != nil {
-			return fmt.Errorf("could not delete vpc %s: %v", *nodeBal[0].Label, err)
-		}
-		klog.Infof("  Deleted VPC %s\n", *nodeBal[0].Label)
-	}
-
-	return nil
+	return infrastructureProvider.Delete(ctx, &values, cmd.Flags().Changed("force"))
 }
