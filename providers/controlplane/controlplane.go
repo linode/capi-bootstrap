@@ -2,7 +2,7 @@ package controlplane
 
 import "capi-bootstrap/providers/controlplane/k3s"
 
-func NewControlPlaneProvider(name string) Provider {
+func NewProvider(name string) Provider {
 	switch name {
 	case "KThreesControlPlane":
 		return k3s.K3s{}

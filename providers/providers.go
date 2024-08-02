@@ -14,6 +14,8 @@ type Values struct {
 	ClusterName string
 	// K8sVersion is the version parsed from the providers.ControlPlane
 	K8sVersion string
+	// ClusterKind is the Kind of infrastructure.cluster.x-k8s.io used for this cluster
+	ClusterKind string
 	// ClusterEndpoint is the IP address or hostname to be used to access the kubernetes cluster
 	ClusterEndpoint string
 	// ManifestFile is the name of the file(or - for stdin) to read all manifests from

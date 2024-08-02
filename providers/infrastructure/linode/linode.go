@@ -21,19 +21,23 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-type CapL struct{}
+type CAPL struct{}
 
-func (CapL) GenerateCapiFile(ctx context.Context, values providers.Values) (*capiYaml.InitFile, error) {
+func (CAPL) Name() string {
+	return "linode-linode"
+}
+
+func (CAPL) GenerateCapiFile(ctx context.Context, values providers.Values) (*capiYaml.InitFile, error) {
 	filePath := filepath.Join(values.BootstrapManifestDir, "capi-linode.yaml")
 	return capiYaml.ConstructFile(filePath, filepath.Join("files", "capi-linode.yaml"), files, values, false)
 }
 
-func (CapL) GenerateCapiMachine(ctx context.Context, values providers.Values) (*capiYaml.InitFile, error) {
+func (CAPL) GenerateCapiMachine(ctx context.Context, values providers.Values) (*capiYaml.InitFile, error) {
 	filePath := filepath.Join(values.BootstrapManifestDir, "capi-pivot-machine.yaml")
 	return capiYaml.ConstructFile(filePath, filepath.Join("files", "capi-pivot-machine.yaml"), files, values, false)
 }
 
-func (CapL) GenerateAdditionalFiles(ctx context.Context, values providers.Values) ([]capiYaml.InitFile, error) {
+func (CAPL) GenerateAdditionalFiles(ctx context.Context, values providers.Values) ([]capiYaml.InitFile, error) {
 	filePath := filepath.Join(values.BootstrapManifestDir, "linode-ccm.yaml")
 	localPath := filepath.Join("files", "linode-ccm.yaml")
 	if values.Linode.VPC != nil {
@@ -46,7 +50,7 @@ func (CapL) GenerateAdditionalFiles(ctx context.Context, values providers.Values
 	return []capiYaml.InitFile{*CCMFile}, nil
 }
 
-func (CapL) PreCmd(ctx context.Context, values *providers.Values) error {
+func (CAPL) PreCmd(ctx context.Context, values *providers.Values) error {
 	values.Linode.Token = os.Getenv("LINODE_TOKEN")
 
 	if values.Linode.Token == "" {
@@ -57,7 +61,7 @@ func (CapL) PreCmd(ctx context.Context, values *providers.Values) error {
 	return nil
 }
 
-func (CapL) PreDeploy(ctx context.Context, values *providers.Values) error {
+func (CAPL) PreDeploy(ctx context.Context, values *providers.Values) error {
 	values.Linode.Machine = GetLinodeMachineDef(values.Manifests)
 	if values.Linode.Machine == nil {
 		return errors.New("machine not found")
@@ -109,7 +113,7 @@ func (CapL) PreDeploy(ctx context.Context, values *providers.Values) error {
 	return nil
 }
 
-func (CapL) Deploy(ctx context.Context, values *providers.Values, metadata []byte) error {
+func (CAPL) Deploy(ctx context.Context, values *providers.Values, metadata []byte) error {
 	createOptions := linodego.InstanceCreateOptions{
 		Label:     values.ClusterName + "-bootstrap",
 		Image:     values.Linode.Machine.Spec.Template.Spec.Image,
@@ -186,12 +190,12 @@ func (CapL) Deploy(ctx context.Context, values *providers.Values, metadata []byt
 	return nil
 }
 
-func (CapL) PostDeploy(ctx context.Context, values *providers.Values) error {
+func (CAPL) PostDeploy(ctx context.Context, values *providers.Values) error {
 	// Not currently used by the LinodeProvider
 	return nil
 }
 
-func (CapL) Delete(ctx context.Context, values *providers.Values, force bool) error {
+func (CAPL) Delete(ctx context.Context, values *providers.Values, force bool) error {
 	values.Linode.Client = Client(values.Linode.Token, ctx)
 	ListFilter, err := json.Marshal(map[string]string{"tags": values.ClusterName})
 	if err != nil {
@@ -292,7 +296,7 @@ func GetLinodeMachineDef(manifests []string) *caplv1alpha1.LinodeMachineTemplate
 	return nil
 }
 
-func (CapL) UpdateManifests(ctx context.Context, manifests []string, values providers.Values) error {
+func (CAPL) UpdateManifests(ctx context.Context, manifests []string, values providers.Values) error {
 	var LinodeClusterIndex int
 	var LinodeCluster v1alpha2.LinodeCluster
 	for i, manifest := range manifests {

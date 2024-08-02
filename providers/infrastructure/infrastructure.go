@@ -2,10 +2,10 @@ package infrastructure
 
 import Linode "capi-bootstrap/providers/infrastructure/linode"
 
-func NewInfrastructureProvider(name string) Provider {
+func NewProvider(name string) Provider {
 	switch name {
 	case "LinodeCluster":
-		return Linode.CapL{}
+		return Linode.CAPL{}
 	default:
 		return nil
 	}
