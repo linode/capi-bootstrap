@@ -1,5 +1,5 @@
 # CAPI Bootstrap
-
+[![codecov](https://codecov.io/gh/linode/capi-bootstrap/graph/badge.svg?token=dgrETnMsen)](https://codecov.io/gh/linode/capi-bootstrap)
 ## Building Requirements
 Note: Using devbox will install necessary requirements to build/run this project, dependencies can be installed outside Devbox as well
 * (Optional)[Devbox](https://www.jetify.com/devbox/)

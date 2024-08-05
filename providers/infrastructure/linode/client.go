@@ -7,7 +7,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-func Client(linodeToken string, ctx context.Context) linodego.Client {
+func NewClient(linodeToken string, ctx context.Context) linodego.Client {
 	tokenSource := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: linodeToken})
 	oauth2Client := oauth2.NewClient(ctx, tokenSource)
 

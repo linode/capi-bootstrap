@@ -76,7 +76,7 @@ func getKubeconfigDirect(cmd *cobra.Command, clusterName string) (string, error)
 		return "", errors.New("linode_token is required")
 	}
 
-	linClient := Linode.Client(linodeToken, cmd.Context())
+	linClient := Linode.NewClient(linodeToken, cmd.Context())
 	instanceListFilter, err := json.Marshal(map[string]string{"tags": clusterName})
 	if err != nil {
 		return "", err
