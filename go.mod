@@ -12,6 +12,8 @@ require (
 	github.com/linode/cluster-api-provider-linode v0.5.0
 	github.com/linode/linodego v1.37.0
 	github.com/spf13/cobra v1.8.1
+	github.com/stretchr/testify v1.9.0
+	go.uber.org/mock v0.4.0
 	golang.org/x/oauth2 v0.21.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/client-go v0.30.3

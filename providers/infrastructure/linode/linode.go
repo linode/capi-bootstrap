@@ -16,7 +16,6 @@ import (
 	"github.com/linode/cluster-api-provider-linode/api/v1alpha2"
 	"github.com/linode/linodego"
 	"k8s.io/klog/v2"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/yaml"
 )
@@ -56,8 +55,8 @@ func (CAPL) PreCmd(ctx context.Context, values *providers.Values) error {
 	if values.Linode.Token == "" {
 		return errors.New("LINODE_TOKEN env variable is required")
 	}
-
-	values.Linode.Client = Client(values.Linode.Token, ctx)
+	client := NewClient(values.Linode.Token, ctx)
+	values.Linode.Client = &client
 	return nil
 }
 
@@ -69,11 +68,11 @@ func (CAPL) PreDeploy(ctx context.Context, values *providers.Values) error {
 
 	nbListFilter, err := json.Marshal(map[string]string{"tags": values.ClusterName})
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to unmarshal nodebalancer list filter: %s", err)
 	}
 	existingNB, err := values.Linode.Client.ListNodeBalancers(ctx, linodego.NewListOptions(1, string(nbListFilter)))
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to list NodeBalancers: %s", err)
 	}
 	if len(existingNB) != 0 {
 		return errors.New("node balancer already exists")
@@ -85,7 +84,7 @@ func (CAPL) PreDeploy(ctx context.Context, values *providers.Values) error {
 		Tags:   []string{values.ClusterName},
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to create NodeBalancer: %s", err)
 	}
 	klog.Infof("Created NodeBalancer: %v\n", *values.Linode.NodeBalancer.Label)
 
@@ -97,7 +96,7 @@ func (CAPL) PreDeploy(ctx context.Context, values *providers.Values) error {
 		Check:     "connection",
 	})
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to unmarshal nodebalancer list filter: %s", err)
 	}
 
 	if values.Linode.NodeBalancer.IPv4 == nil {
@@ -141,7 +140,7 @@ func (CAPL) Deploy(ctx context.Context, values *providers.Values, metadata []byt
 			Subnets:     vpcSubnets,
 		})
 		if err != nil {
-			return errors.New("Unable to create VPC: " + err.Error())
+			return fmt.Errorf("unable to create VPC: %s", err)
 		}
 		natAny := "any"
 		createOptions.Interfaces = []linodego.InstanceConfigInterfaceCreateOptions{
@@ -162,7 +161,7 @@ func (CAPL) Deploy(ctx context.Context, values *providers.Values, metadata []byt
 	// Create a Linode Instance
 	instance, err := values.Linode.Client.CreateInstance(ctx, createOptions)
 	if err != nil {
-		return err
+		return fmt.Errorf("unable to create Instance: %s", err)
 	}
 
 	klog.Infof("Created Linode Instance: %v\n", instance.Label)
@@ -196,15 +195,14 @@ func (CAPL) PostDeploy(ctx context.Context, values *providers.Values) error {
 }
 
 func (CAPL) Delete(ctx context.Context, values *providers.Values, force bool) error {
-	values.Linode.Client = Client(values.Linode.Token, ctx)
 	ListFilter, err := json.Marshal(map[string]string{"tags": values.ClusterName})
 	if err != nil {
 		return err
 	}
 
-	instances, err := values.Linode.Client.ListInstances(ctx, ptr.To(linodego.ListOptions{
+	instances, err := values.Linode.Client.ListInstances(ctx, &linodego.ListOptions{
 		Filter: string(ListFilter),
-	}))
+	})
 	if err != nil {
 		return fmt.Errorf("could not list instances: %v", err)
 	}
@@ -220,9 +218,9 @@ func (CAPL) Delete(ctx context.Context, values *providers.Values, force bool) er
 	if err != nil {
 		return fmt.Errorf("could construct VPC filter: %v", err)
 	}
-	vpcs, err := values.Linode.Client.ListVPCs(ctx, ptr.To(linodego.ListOptions{
+	vpcs, err := values.Linode.Client.ListVPCs(ctx, &linodego.ListOptions{
 		Filter: string(VPCListFilter),
-	}))
+	})
 	if err != nil {
 		return fmt.Errorf("could not list VPCs: %v", err)
 	}
@@ -236,7 +234,7 @@ func (CAPL) Delete(ctx context.Context, values *providers.Values, force bool) er
 
 	nodeBal, err := values.Linode.Client.ListNodeBalancers(ctx, linodego.NewListOptions(1, string(ListFilter)))
 	if err != nil {
-		return err
+		return fmt.Errorf("could not list NodeBalancers: %v", err)
 	}
 	switch len(nodeBal) {
 	case 1:
@@ -263,21 +261,21 @@ func (CAPL) Delete(ctx context.Context, values *providers.Values, force bool) er
 
 	for _, instance := range instances {
 		if err := values.Linode.Client.DeleteInstance(ctx, instance.ID); err != nil {
-			return fmt.Errorf("could not delete instance %s: %v", instance.Label, err)
+			return fmt.Errorf("could not delete Instance %s: %v", instance.Label, err)
 		}
 		klog.Infof("  Deleted Instance %s\n", instance.Label)
 	}
 
 	if len(nodeBal) == 1 {
 		if err := values.Linode.Client.DeleteNodeBalancer(ctx, nodeBal[0].ID); err != nil {
-			return fmt.Errorf("could not delete nodebalancer %s: %v", *nodeBal[0].Label, err)
+			return fmt.Errorf("could not delete NodeBalancer %s: %v", *nodeBal[0].Label, err)
 		}
 		klog.Infof("  Deleted NodeBalancer %s\n", *nodeBal[0].Label)
 	}
 
 	if len(vpcs) == 1 {
 		if err := values.Linode.Client.DeleteVPC(ctx, vpcs[0].ID); err != nil {
-			return fmt.Errorf("could not delete vpc %s: %v", *nodeBal[0].Label, err)
+			return fmt.Errorf("could not delete VPC %s: %v", vpcs[0].Label, err)
 		}
 		klog.Infof("  Deleted VPC %s\n", *nodeBal[0].Label)
 	}

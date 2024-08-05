@@ -2,8 +2,10 @@ BUILD_DIR ?= bin
 BUILD_TARGET ?= $(BUILD_DIR)/clusterctl-bootstrap
 
 GOLANGCI_LINT_VERSION ?= v1.57.2
-GOLANGCI_LINT = $(LOCALBIN)/golangci-lint-$(GOLANGCI_LINT_VERSION)
-
+MOCKGEN_VERSION ?= v0.4.0
+GOLANGCI_LINT ?= $(LOCALBIN)/golangci-lint-$(GOLANGCI_LINT_VERSION)
+MOCKGEN ?= $(LOCALBIN)/mockgen-$(MOCKGEN_VERSION)
+INFRASTRUCTURE_PROVIDERS ?= linode
 all: clean fmt test vet build
 
 .PHONY: build
@@ -16,8 +18,17 @@ $(LOCALBIN):
 	mkdir -p $(LOCALBIN)
 
 .PHONY: build
-test:
-	go test -v ./...
+test: generate
+	go test -race -v ./... -coverprofile cover.out
+
+.PHONY: generate
+generate: mockgen
+	for provider in $(INFRASTRUCTURE_PROVIDERS) ; do \
+            $(MOCKGEN) -destination=providers/infrastructure/linode/mock/mock_$$provider.go -source=providers/providers.go ; \
+	done
+	$(MOCKGEN) -destination=providers/controlplane/mock/mock_controlplane.go -source=providers/controlplane/types.go
+	$(MOCKGEN) -destination=providers/infrastructure/mock/mock_types.go -source=providers/infrastructure/types.go
+
 
 .PHONY: vet
 vet:
@@ -35,6 +46,11 @@ lint: golangci-lint
 golangci-lint: $(GOLANGCI_LINT)
 $(GOLANGCI_LINT): $(LOCALBIN)
 	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint,${GOLANGCI_LINT_VERSION})
+
+.PHONY: mockgen
+mockgen: $(MOCKGEN)
+$(MOCKGEN): $(LOCALBIN)
+	$(call go-install-tool,$(MOCKGEN),go.uber.org/mock/mockgen,${MOCKGEN_VERSION})
 
 .PHONY: clean
 clean:

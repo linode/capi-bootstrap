@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+
 	capK3s "github.com/k3s-io/cluster-api-k3s/controlplane/api/v1beta1"
 	"github.com/k3s-io/cluster-api-k3s/pkg/etcd"
 	"github.com/k3s-io/cluster-api-k3s/pkg/k3s"
@@ -78,7 +79,10 @@ func GetControlPlaneDef(manifests []string) *capK3s.KThreesControlPlane {
 
 func generateK3sConfig(values providers.Values) (*capiYaml.InitFile, error) {
 	filePath := "/etc/rancher/k3s/config.yaml"
-	config := k3s.GenerateInitControlPlaneConfig(values.ClusterEndpoint, uuid.NewString(), values.K3s.ServerConfig, values.K3s.AgentConfig)
+	if values.BootstrapToken == "" {
+		values.BootstrapToken = uuid.NewString()
+	}
+	config := k3s.GenerateInitControlPlaneConfig(values.ClusterEndpoint, values.BootstrapToken, values.K3s.ServerConfig, values.K3s.AgentConfig)
 	configYaml, err := capiYaml.Marshal(config)
 	if err != nil {
 		return nil, err
