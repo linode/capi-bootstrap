@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"capi-bootstrap/providers"
+	"capi-bootstrap/providers/backend"
 	"capi-bootstrap/providers/controlplane"
 	"capi-bootstrap/providers/infrastructure"
 	"errors"
@@ -41,6 +42,8 @@ type clusterOptions struct {
 	controlPlaneMachineCount int64
 	workerMachineCount       int64
 
+	backend string
+
 	url string
 }
 
@@ -69,12 +72,21 @@ func init() {
 	clusterCmd.Flags().StringVar(&clusterOpts.url, "from", "",
 		"The URL to read the workload cluster template from. If unspecified, the infrastructure provider repository URL will be used. If set to '-', the workload cluster template is read from stdin.")
 
+	// flags for the backend provider
+	clusterCmd.Flags().StringVar(&clusterOpts.backend, "backend", "file",
+		"The backend provider to use to store configuration for the cluster")
+
 	// flags for the config map source
 	rootCmd.AddCommand(clusterCmd)
 }
 
 func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 	ctx := cmd.Context()
+
+	backendProvider := backend.NewProvider(clusterOpts.backend)
+	if err := backendProvider.PreCmd(ctx); err != nil {
+		return err
+	}
 
 	manifestFile, err := cmd.Flags().GetString("manifest")
 	if err != nil {
@@ -98,15 +110,18 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 	if clusterSpec == nil {
 		return errors.New("cluster not found")
 	}
-	infrastructureProvider := infrastructure.NewInfrastructureProvider(clusterSpec.Spec.InfrastructureRef.Kind)
+
+	infrastructureProvider := infrastructure.NewProvider(clusterSpec.Spec.InfrastructureRef.Kind)
 	if infrastructureProvider == nil {
 		return errors.New("infrastructure provider not found for " + clusterSpec.Spec.InfrastructureRef.Kind)
 	}
-	ControlPlaneProvider := controlplane.NewControlPlaneProvider(clusterSpec.Spec.ControlPlaneRef.Kind)
+	ControlPlaneProvider := controlplane.NewProvider(clusterSpec.Spec.ControlPlaneRef.Kind)
 	if ControlPlaneProvider == nil {
 		return errors.New("ControlPlane provider not found for " + clusterSpec.Spec.ControlPlaneRef.Kind)
 	}
 	values.ClusterName = clusterSpec.Name
+	values.ClusterKind = clusterSpec.Spec.InfrastructureRef.Kind
+
 	if values.ClusterName == "" {
 		return errors.New("cluster name is empty")
 	}

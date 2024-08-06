@@ -39,7 +39,7 @@ func runDeleteCluster(cmd *cobra.Command, clusterName string) error {
 	ctx := cmd.Context()
 	var values providers.Values
 	values.ClusterName = clusterName
-	infrastructureProvider := infrastructure.NewInfrastructureProvider("LinodeCluster")
+	infrastructureProvider := infrastructure.NewProvider("LinodeCluster")
 	err := infrastructureProvider.PreCmd(ctx, &values)
 	if err != nil {
 		return err
