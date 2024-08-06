@@ -11,7 +11,9 @@ var versionCmd = &cobra.Command{
 	Short: "Show the version of " + AppName,
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		klog.Info("version called")
+		ctx := cmd.Context()
+		klog.Infof("%s - %s %s %s",
+			AppName, ctx.Value("version"), ctx.Value("commit"), ctx.Value("date"))
 	},
 }
 
