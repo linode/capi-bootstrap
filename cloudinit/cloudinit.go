@@ -56,6 +56,7 @@ func GenerateCloudInit(ctx context.Context, values *types.Values, infra infrastr
 	if err != nil {
 		return nil, err
 	}
+
 	// control plane specific
 	controlPlaneCapi, err := controlPlane.GenerateCapiFile(ctx, values)
 	if err != nil {
@@ -73,6 +74,19 @@ func GenerateCloudInit(ctx context.Context, values *types.Values, infra infrastr
 	if err != nil {
 		return nil, err
 	}
+	controlPlaneCertFiles, err := controlPlane.GetControlPlaneCertFiles(ctx, values)
+	if err != nil {
+		return nil, err
+	}
+	controlPlaneCertSecrets, err := controlPlane.GetControlPlaneCertSecret(ctx, values)
+	if err != nil {
+		return nil, err
+	}
+	kubeconfigSecret, err := controlPlane.GetKubeconfig(ctx, values)
+	if err != nil {
+		return nil, err
+	}
+
 	runCmds := []string{fmt.Sprintf("bash %s", initScriptPath)}
 	runCmds = append(debugCmds, runCmds...)
 	runCmds = append(controlPlaneRunCmd, runCmds...)
@@ -86,10 +100,13 @@ func GenerateCloudInit(ctx context.Context, values *types.Values, infra infrastr
 		*infraCapi,
 		*capiPivotMachine,
 		*capiManifests.ManifestFile,
+		*controlPlaneCertSecrets,
+		*kubeconfigSecret,
 		*initScript,
 	}
 	writeFiles = append(writeFiles, additionalInfraFiles...)
 	writeFiles = append(writeFiles, additionalControlPlaneFiles...)
+	writeFiles = append(writeFiles, controlPlaneCertFiles...)
 	writeFiles = append(writeFiles, capiManifests.AdditionalFiles...)
 	if tarWriteFiles {
 		fileReader, err := createTar(writeFiles)
