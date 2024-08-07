@@ -14,7 +14,7 @@ func TestNewProvider(t *testing.T) {
 		want  Provider
 	}
 	tests := []test{
-		{name: "linode", input: "LinodeCluster", want: Linode.CAPL{}},
+		{name: "linode", input: "LinodeCluster", want: Linode.NewInfrastructure()},
 		{name: "not matching name", input: "wrong", want: nil},
 		{name: "no name", input: "", want: nil},
 	}

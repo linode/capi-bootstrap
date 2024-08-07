@@ -10,7 +10,7 @@
 package mock_infrastructure
 
 import (
-	providers "capi-bootstrap/providers"
+	types "capi-bootstrap/types"
 	yaml "capi-bootstrap/yaml"
 	context "context"
 	reflect "reflect"
@@ -42,7 +42,7 @@ func (m *MockProvider) EXPECT() *MockProviderMockRecorder {
 }
 
 // Delete mocks base method.
-func (m *MockProvider) Delete(ctx context.Context, values *providers.Values, force bool) error {
+func (m *MockProvider) Delete(ctx context.Context, values *types.Values, force bool) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Delete", ctx, values, force)
 	ret0, _ := ret[0].(error)
@@ -56,7 +56,7 @@ func (mr *MockProviderMockRecorder) Delete(ctx, values, force any) *gomock.Call 
 }
 
 // Deploy mocks base method.
-func (m *MockProvider) Deploy(ctx context.Context, values *providers.Values, metadata []byte) error {
+func (m *MockProvider) Deploy(ctx context.Context, values *types.Values, metadata []byte) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Deploy", ctx, values, metadata)
 	ret0, _ := ret[0].(error)
@@ -70,7 +70,7 @@ func (mr *MockProviderMockRecorder) Deploy(ctx, values, metadata any) *gomock.Ca
 }
 
 // GenerateAdditionalFiles mocks base method.
-func (m *MockProvider) GenerateAdditionalFiles(ctx context.Context, values providers.Values) ([]yaml.InitFile, error) {
+func (m *MockProvider) GenerateAdditionalFiles(ctx context.Context, values *types.Values) ([]yaml.InitFile, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GenerateAdditionalFiles", ctx, values)
 	ret0, _ := ret[0].([]yaml.InitFile)
@@ -85,7 +85,7 @@ func (mr *MockProviderMockRecorder) GenerateAdditionalFiles(ctx, values any) *go
 }
 
 // GenerateCapiFile mocks base method.
-func (m *MockProvider) GenerateCapiFile(ctx context.Context, values providers.Values) (*yaml.InitFile, error) {
+func (m *MockProvider) GenerateCapiFile(ctx context.Context, values *types.Values) (*yaml.InitFile, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GenerateCapiFile", ctx, values)
 	ret0, _ := ret[0].(*yaml.InitFile)
@@ -100,7 +100,7 @@ func (mr *MockProviderMockRecorder) GenerateCapiFile(ctx, values any) *gomock.Ca
 }
 
 // GenerateCapiMachine mocks base method.
-func (m *MockProvider) GenerateCapiMachine(ctx context.Context, values providers.Values) (*yaml.InitFile, error) {
+func (m *MockProvider) GenerateCapiMachine(ctx context.Context, values *types.Values) (*yaml.InitFile, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GenerateCapiMachine", ctx, values)
 	ret0, _ := ret[0].(*yaml.InitFile)
@@ -115,7 +115,7 @@ func (mr *MockProviderMockRecorder) GenerateCapiMachine(ctx, values any) *gomock
 }
 
 // PostDeploy mocks base method.
-func (m *MockProvider) PostDeploy(ctx context.Context, values *providers.Values) error {
+func (m *MockProvider) PostDeploy(ctx context.Context, values *types.Values) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PostDeploy", ctx, values)
 	ret0, _ := ret[0].(error)
@@ -129,7 +129,7 @@ func (mr *MockProviderMockRecorder) PostDeploy(ctx, values any) *gomock.Call {
 }
 
 // PreCmd mocks base method.
-func (m *MockProvider) PreCmd(ctx context.Context, values *providers.Values) error {
+func (m *MockProvider) PreCmd(ctx context.Context, values *types.Values) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PreCmd", ctx, values)
 	ret0, _ := ret[0].(error)
@@ -143,7 +143,7 @@ func (mr *MockProviderMockRecorder) PreCmd(ctx, values any) *gomock.Call {
 }
 
 // PreDeploy mocks base method.
-func (m *MockProvider) PreDeploy(ctx context.Context, values *providers.Values) error {
+func (m *MockProvider) PreDeploy(ctx context.Context, values *types.Values) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PreDeploy", ctx, values)
 	ret0, _ := ret[0].(error)
@@ -157,7 +157,7 @@ func (mr *MockProviderMockRecorder) PreDeploy(ctx, values any) *gomock.Call {
 }
 
 // UpdateManifests mocks base method.
-func (m *MockProvider) UpdateManifests(ctx context.Context, manifests []string, values providers.Values) error {
+func (m *MockProvider) UpdateManifests(ctx context.Context, manifests []string, values *types.Values) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateManifests", ctx, manifests, values)
 	ret0, _ := ret[0].(error)

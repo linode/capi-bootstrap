@@ -24,7 +24,7 @@ test: generate
 .PHONY: generate
 generate: mockgen
 	for provider in $(INFRASTRUCTURE_PROVIDERS) ; do \
-            $(MOCKGEN) -destination=providers/infrastructure/linode/mock/mock_$$provider.go -source=providers/providers.go ; \
+            $(MOCKGEN) -destination=providers/infrastructure/linode/mock/mock_$$provider.go -source=providers/infrastructure/$$provider/$$provider.go ; \
 	done
 	$(MOCKGEN) -destination=providers/controlplane/mock/mock_controlplane.go -source=providers/controlplane/types.go
 	$(MOCKGEN) -destination=providers/infrastructure/mock/mock_types.go -source=providers/infrastructure/types.go

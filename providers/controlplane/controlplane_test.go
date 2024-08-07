@@ -14,7 +14,7 @@ func TestNewProvider(t *testing.T) {
 		want  Provider
 	}
 	tests := []test{
-		{name: "k3s", input: "KThreesControlPlane", want: k3s.K3s{}},
+		{name: "k3s", input: "KThreesControlPlane", want: k3s.NewControlPlane()},
 		{name: "not matching name", input: "wrong", want: nil},
 		{name: "no name", input: "", want: nil},
 	}

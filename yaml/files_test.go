@@ -1,7 +1,7 @@
 package yaml
 
 import (
-	"capi-bootstrap/providers"
+	"capi-bootstrap/types"
 	"os"
 	"path/filepath"
 	"testing"
@@ -15,7 +15,7 @@ import (
 func TestConstructFile(t *testing.T) {
 	type test struct {
 		name       string
-		input      providers.Values
+		input      types.Values
 		escapeFile bool
 		localPath  string
 		manifest   []byte
@@ -25,7 +25,7 @@ func TestConstructFile(t *testing.T) {
 	tests := []test{
 		{
 			name:      "success",
-			input:     providers.Values{ClusterName: "test-cluster"},
+			input:     types.Values{ClusterName: "test-cluster"},
 			localPath: "tmpfile",
 			manifest: []byte(`---
 apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
@@ -53,7 +53,7 @@ spec:
 		},
 		{
 			name:       "success escaped file",
-			input:      providers.Values{ClusterName: "test-cluster"},
+			input:      types.Values{ClusterName: "test-cluster"},
 			localPath:  "tmpfile",
 			escapeFile: true,
 			manifest: []byte(`---
@@ -82,13 +82,13 @@ spec:
 		},
 		{
 			name:      "err invalid file",
-			input:     providers.Values{ClusterName: "test-cluster"},
+			input:     types.Values{ClusterName: "test-cluster"},
 			localPath: "wrong-tmpfile",
 			wantErr:   "error reading file: open wrong-tmpfile: no such file or directory",
 		},
 		{
 			name:      "err invalid parsed template",
-			input:     providers.Values{ClusterName: "test-cluster"},
+			input:     types.Values{ClusterName: "test-cluster"},
 			localPath: "tmpfile",
 			manifest: []byte(`---
 apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1

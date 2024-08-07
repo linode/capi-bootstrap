@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"capi-bootstrap/providers"
-	"capi-bootstrap/providers/infrastructure"
+	"capi-bootstrap/providers/backend"
+	"capi-bootstrap/state"
 	"errors"
 
 	"github.com/spf13/cobra"
@@ -32,18 +32,39 @@ to quickly create a Cobra application.`,
 func init() {
 	deleteCmd.Flags().BoolP("force", "f", false,
 		"delete all resources created by this cluster without confirming")
+
+	// flags for the backend provider
+	deleteCmd.Flags().StringVar(&clusterOpts.backend, "backend", "file",
+		"The backend provider to use to store configuration for the cluster")
+
 	rootCmd.AddCommand(deleteCmd)
 }
 
 func runDeleteCluster(cmd *cobra.Command, clusterName string) error {
 	ctx := cmd.Context()
-	var values providers.Values
-	values.ClusterName = clusterName
-	infrastructureProvider := infrastructure.NewProvider("LinodeCluster")
-	err := infrastructureProvider.PreCmd(ctx, &values)
+
+	backendProvider := backend.NewProvider(clusterOpts.backend)
+	if err := backendProvider.PreCmd(ctx, clusterName); err != nil {
+		return err
+	}
+
+	config, err := backendProvider.Read(ctx, clusterName)
 	if err != nil {
 		return err
 	}
 
-	return infrastructureProvider.Delete(ctx, &values, cmd.Flags().Changed("force"))
+	clusterState, err := state.NewState(config)
+	if err != nil {
+		return err
+	}
+
+	if err := clusterState.Infrastructure.PreCmd(ctx, clusterState.Values); err != nil {
+		return err
+	}
+
+	if err := clusterState.Infrastructure.Delete(ctx, clusterState.Values, cmd.Flags().Changed("force")); err != nil {
+		return err
+	}
+
+	return backendProvider.Delete(ctx, clusterName)
 }

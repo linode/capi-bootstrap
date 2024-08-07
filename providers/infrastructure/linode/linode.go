@@ -1,7 +1,7 @@
 package Linode
 
 import (
-	"capi-bootstrap/providers"
+	"capi-bootstrap/types"
 	capiYaml "capi-bootstrap/yaml"
 	"context"
 	"encoding/base64"
@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 
 	"github.com/google/uuid"
+	"github.com/linode/cluster-api-provider-linode/api/v1alpha1"
 	caplv1alpha1 "github.com/linode/cluster-api-provider-linode/api/v1alpha1"
 	"github.com/linode/cluster-api-provider-linode/api/v1alpha2"
 	"github.com/linode/linodego"
@@ -20,49 +21,75 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-type CAPL struct{}
-
-func (CAPL) Name() string {
-	return "linode-linode"
+// LinodeClient is an interface that includes all linodego calls, so they can be mocked out for testing
+type LinodeClient interface {
+	ListNodeBalancers(ctx context.Context, opts *linodego.ListOptions) ([]linodego.NodeBalancer, error)
+	CreateNodeBalancer(ctx context.Context, opts linodego.NodeBalancerCreateOptions) (*linodego.NodeBalancer, error)
+	CreateNodeBalancerConfig(ctx context.Context, nodebalancerID int, opts linodego.NodeBalancerConfigCreateOptions) (*linodego.NodeBalancerConfig, error)
+	DeleteNodeBalancer(ctx context.Context, nodebalancerID int) error
+	CreateNodeBalancerNode(ctx context.Context, nodebalancerID int, configID int, opts linodego.NodeBalancerNodeCreateOptions) (*linodego.NodeBalancerNode, error)
+	ListVPCs(ctx context.Context, opts *linodego.ListOptions) ([]linodego.VPC, error)
+	CreateVPC(ctx context.Context, opts linodego.VPCCreateOptions) (*linodego.VPC, error)
+	DeleteVPC(ctx context.Context, vpcID int) error
+	CreateInstance(ctx context.Context, opts linodego.InstanceCreateOptions) (*linodego.Instance, error)
+	ListInstances(ctx context.Context, opts *linodego.ListOptions) ([]linodego.Instance, error)
+	DeleteInstance(ctx context.Context, linodeID int) error
 }
 
-func (CAPL) GenerateCapiFile(ctx context.Context, values providers.Values) (*capiYaml.InitFile, error) {
+type Infrastructure struct {
+	Name               string
+	Client             LinodeClient `json:"-"`
+	Machine            *v1alpha1.LinodeMachineTemplate
+	NodeBalancer       *linodego.NodeBalancer
+	NodeBalancerConfig *linodego.NodeBalancerConfig
+	Token              string
+	AuthorizedKeys     string
+	VPC                *v1alpha1.LinodeVPC
+}
+
+func NewInfrastructure() *Infrastructure {
+	return &Infrastructure{
+		Name: "LinodeCluster",
+	}
+}
+
+func (p *Infrastructure) GenerateCapiFile(_ context.Context, values *types.Values) (*capiYaml.InitFile, error) {
 	filePath := filepath.Join(values.BootstrapManifestDir, "capi-linode.yaml")
-	return capiYaml.ConstructFile(filePath, filepath.Join("files", "capi-linode.yaml"), files, values, false)
+	return capiYaml.ConstructFile(filePath, filepath.Join("files", "capi-linode.yaml"), files, p.getTemplateValues(values), false)
 }
 
-func (CAPL) GenerateCapiMachine(ctx context.Context, values providers.Values) (*capiYaml.InitFile, error) {
+func (p *Infrastructure) GenerateCapiMachine(ctx context.Context, values *types.Values) (*capiYaml.InitFile, error) {
 	filePath := filepath.Join(values.BootstrapManifestDir, "capi-pivot-machine.yaml")
-	return capiYaml.ConstructFile(filePath, filepath.Join("files", "capi-pivot-machine.yaml"), files, values, false)
+	return capiYaml.ConstructFile(filePath, filepath.Join("files", "capi-pivot-machine.yaml"), files, p.getTemplateValues(values), false)
 }
 
-func (CAPL) GenerateAdditionalFiles(ctx context.Context, values providers.Values) ([]capiYaml.InitFile, error) {
+func (p *Infrastructure) GenerateAdditionalFiles(ctx context.Context, values *types.Values) ([]capiYaml.InitFile, error) {
 	filePath := filepath.Join(values.BootstrapManifestDir, "linode-ccm.yaml")
 	localPath := filepath.Join("files", "linode-ccm.yaml")
-	if values.Linode.VPC != nil {
+	if p.VPC != nil {
 		localPath = filepath.Join("files", "linode-ccm-vpc.yaml")
 	}
-	CCMFile, err := capiYaml.ConstructFile(filePath, localPath, files, values, false)
+	CCMFile, err := capiYaml.ConstructFile(filePath, localPath, files, p.getTemplateValues(values), false)
 	if err != nil {
 		return nil, err
 	}
 	return []capiYaml.InitFile{*CCMFile}, nil
 }
 
-func (CAPL) PreCmd(ctx context.Context, values *providers.Values) error {
-	values.Linode.Token = os.Getenv("LINODE_TOKEN")
+func (p *Infrastructure) PreCmd(ctx context.Context, values *types.Values) error {
+	p.Token = os.Getenv("LINODE_TOKEN")
 
-	if values.Linode.Token == "" {
+	if p.Token == "" {
 		return errors.New("LINODE_TOKEN env variable is required")
 	}
-	client := NewClient(values.Linode.Token, ctx)
-	values.Linode.Client = &client
+	client := NewClient(p.Token, ctx)
+	p.Client = &client
 	return nil
 }
 
-func (CAPL) PreDeploy(ctx context.Context, values *providers.Values) error {
-	values.Linode.Machine = GetLinodeMachineDef(values.Manifests)
-	if values.Linode.Machine == nil {
+func (p *Infrastructure) PreDeploy(ctx context.Context, values *types.Values) error {
+	p.Machine = GetLinodeMachineDef(values.Manifests)
+	if p.Machine == nil {
 		return errors.New("machine not found")
 	}
 
@@ -70,7 +97,7 @@ func (CAPL) PreDeploy(ctx context.Context, values *providers.Values) error {
 	if err != nil {
 		return fmt.Errorf("unable to unmarshal nodebalancer list filter: %s", err)
 	}
-	existingNB, err := values.Linode.Client.ListNodeBalancers(ctx, linodego.NewListOptions(1, string(nbListFilter)))
+	existingNB, err := p.Client.ListNodeBalancers(ctx, linodego.NewListOptions(1, string(nbListFilter)))
 	if err != nil {
 		return fmt.Errorf("unable to list NodeBalancers: %s", err)
 	}
@@ -78,18 +105,18 @@ func (CAPL) PreDeploy(ctx context.Context, values *providers.Values) error {
 		return errors.New("node balancer already exists")
 	}
 	// Create a NodeBalancer
-	values.Linode.NodeBalancer, err = values.Linode.Client.CreateNodeBalancer(ctx, linodego.NodeBalancerCreateOptions{
+	p.NodeBalancer, err = p.Client.CreateNodeBalancer(ctx, linodego.NodeBalancerCreateOptions{
 		Label:  &values.ClusterName,
-		Region: values.Linode.Machine.Spec.Template.Spec.Region,
+		Region: p.Machine.Spec.Template.Spec.Region,
 		Tags:   []string{values.ClusterName},
 	})
 	if err != nil {
 		return fmt.Errorf("unable to create NodeBalancer: %s", err)
 	}
-	klog.Infof("Created NodeBalancer: %v\n", *values.Linode.NodeBalancer.Label)
+	klog.Infof("Created NodeBalancer: %v\n", *p.NodeBalancer.Label)
 
 	// Create a NodeBalancer Config
-	values.Linode.NodeBalancerConfig, err = values.Linode.Client.CreateNodeBalancerConfig(ctx, values.Linode.NodeBalancer.ID, linodego.NodeBalancerConfigCreateOptions{
+	p.NodeBalancerConfig, err = p.Client.CreateNodeBalancerConfig(ctx, p.NodeBalancer.ID, linodego.NodeBalancerConfigCreateOptions{
 		Port:      6443,
 		Protocol:  "tcp",
 		Algorithm: "roundrobin",
@@ -99,44 +126,44 @@ func (CAPL) PreDeploy(ctx context.Context, values *providers.Values) error {
 		return fmt.Errorf("unable to unmarshal nodebalancer list filter: %s", err)
 	}
 
-	if values.Linode.NodeBalancer.IPv4 == nil {
+	if p.NodeBalancer.IPv4 == nil {
 		return errors.New("no node IPv4 address on NodeBalancer")
 	}
 
-	values.Linode.AuthorizedKeys = os.Getenv("AUTHORIZED_KEYS")
-	values.ClusterEndpoint = *values.Linode.NodeBalancer.IPv4
+	p.AuthorizedKeys = os.Getenv("AUTHORIZED_KEYS")
+	values.ClusterEndpoint = *p.NodeBalancer.IPv4
 
 	if vpcDef := GetVPCRef(values.Manifests); vpcDef != nil {
-		values.Linode.VPC = vpcDef
+		p.VPC = vpcDef
 	}
 	return nil
 }
 
-func (CAPL) Deploy(ctx context.Context, values *providers.Values, metadata []byte) error {
+func (p *Infrastructure) Deploy(ctx context.Context, values *types.Values, metadata []byte) error {
 	createOptions := linodego.InstanceCreateOptions{
 		Label:     values.ClusterName + "-bootstrap",
-		Image:     values.Linode.Machine.Spec.Template.Spec.Image,
-		Region:    values.Linode.Machine.Spec.Template.Spec.Region,
-		Type:      values.Linode.Machine.Spec.Template.Spec.Type,
+		Image:     p.Machine.Spec.Template.Spec.Image,
+		Region:    p.Machine.Spec.Template.Spec.Region,
+		Type:      p.Machine.Spec.Template.Spec.Type,
 		RootPass:  uuid.NewString(),
 		Tags:      []string{values.ClusterName},
 		PrivateIP: true,
 		Metadata:  &linodego.InstanceMetadataOptions{UserData: base64.StdEncoding.EncodeToString(metadata)},
 	}
 
-	if values.Linode.VPC != nil {
+	if p.VPC != nil {
 		var vpc *linodego.VPC
 		var vpcSubnets []linodego.VPCSubnetCreateOptions
-		for _, subnet := range values.Linode.VPC.Spec.Subnets {
+		for _, subnet := range p.VPC.Spec.Subnets {
 			vpcSubnets = append(vpcSubnets, linodego.VPCSubnetCreateOptions{
 				Label: subnet.Label,
 				IPv4:  subnet.IPv4,
 			})
 		}
-		vpc, err := values.Linode.Client.CreateVPC(ctx, linodego.VPCCreateOptions{
-			Label:       values.Linode.VPC.Name,
-			Description: values.Linode.VPC.Spec.Description,
-			Region:      values.Linode.VPC.Spec.Region,
+		vpc, err := p.Client.CreateVPC(ctx, linodego.VPCCreateOptions{
+			Label:       p.VPC.Name,
+			Description: p.VPC.Spec.Description,
+			Region:      p.VPC.Spec.Region,
 			Subnets:     vpcSubnets,
 		})
 		if err != nil {
@@ -154,12 +181,12 @@ func (CAPL) Deploy(ctx context.Context, values *providers.Values, metadata []byt
 			{Purpose: linodego.InterfacePurposePublic}}
 	}
 
-	if values.Linode.AuthorizedKeys != "" {
-		createOptions.AuthorizedKeys = []string{values.Linode.AuthorizedKeys}
+	if p.AuthorizedKeys != "" {
+		createOptions.AuthorizedKeys = []string{p.AuthorizedKeys}
 	}
 
 	// Create a Linode Instance
-	instance, err := values.Linode.Client.CreateInstance(ctx, createOptions)
+	instance, err := p.Client.CreateInstance(ctx, createOptions)
 	if err != nil {
 		return fmt.Errorf("unable to create Instance: %s", err)
 	}
@@ -175,7 +202,7 @@ func (CAPL) Deploy(ctx context.Context, values *providers.Values, metadata []byt
 	}
 
 	// Create a NodeBalancer Node
-	node, err := values.Linode.Client.CreateNodeBalancerNode(ctx, values.Linode.NodeBalancer.ID, values.Linode.NodeBalancerConfig.ID, linodego.NodeBalancerNodeCreateOptions{
+	node, err := p.Client.CreateNodeBalancerNode(ctx, p.NodeBalancer.ID, p.NodeBalancerConfig.ID, linodego.NodeBalancerNodeCreateOptions{
 		Address: fmt.Sprintf("%s:6443", privateIP),
 		Label:   values.ClusterName + "-bootstrap",
 		Weight:  100,
@@ -189,18 +216,18 @@ func (CAPL) Deploy(ctx context.Context, values *providers.Values, metadata []byt
 	return nil
 }
 
-func (CAPL) PostDeploy(ctx context.Context, values *providers.Values) error {
+func (p *Infrastructure) PostDeploy(ctx context.Context, values *types.Values) error {
 	// Not currently used by the LinodeProvider
 	return nil
 }
 
-func (CAPL) Delete(ctx context.Context, values *providers.Values, force bool) error {
+func (p *Infrastructure) Delete(ctx context.Context, values *types.Values, force bool) error {
 	ListFilter, err := json.Marshal(map[string]string{"tags": values.ClusterName})
 	if err != nil {
 		return err
 	}
 
-	instances, err := values.Linode.Client.ListInstances(ctx, &linodego.ListOptions{
+	instances, err := p.Client.ListInstances(ctx, &linodego.ListOptions{
 		Filter: string(ListFilter),
 	})
 	if err != nil {
@@ -218,7 +245,7 @@ func (CAPL) Delete(ctx context.Context, values *providers.Values, force bool) er
 	if err != nil {
 		return fmt.Errorf("could construct VPC filter: %v", err)
 	}
-	vpcs, err := values.Linode.Client.ListVPCs(ctx, &linodego.ListOptions{
+	vpcs, err := p.Client.ListVPCs(ctx, &linodego.ListOptions{
 		Filter: string(VPCListFilter),
 	})
 	if err != nil {
@@ -232,7 +259,7 @@ func (CAPL) Delete(ctx context.Context, values *providers.Values, force bool) er
 		}
 	}
 
-	nodeBal, err := values.Linode.Client.ListNodeBalancers(ctx, linodego.NewListOptions(1, string(ListFilter)))
+	nodeBal, err := p.Client.ListNodeBalancers(ctx, linodego.NewListOptions(1, string(ListFilter)))
 	if err != nil {
 		return fmt.Errorf("could not list NodeBalancers: %v", err)
 	}
@@ -260,21 +287,21 @@ func (CAPL) Delete(ctx context.Context, values *providers.Values, force bool) er
 	klog.Info("Deleting resources:")
 
 	for _, instance := range instances {
-		if err := values.Linode.Client.DeleteInstance(ctx, instance.ID); err != nil {
+		if err := p.Client.DeleteInstance(ctx, instance.ID); err != nil {
 			return fmt.Errorf("could not delete Instance %s: %v", instance.Label, err)
 		}
 		klog.Infof("  Deleted Instance %s\n", instance.Label)
 	}
 
 	if len(nodeBal) == 1 {
-		if err := values.Linode.Client.DeleteNodeBalancer(ctx, nodeBal[0].ID); err != nil {
+		if err := p.Client.DeleteNodeBalancer(ctx, nodeBal[0].ID); err != nil {
 			return fmt.Errorf("could not delete NodeBalancer %s: %v", *nodeBal[0].Label, err)
 		}
 		klog.Infof("  Deleted NodeBalancer %s\n", *nodeBal[0].Label)
 	}
 
 	if len(vpcs) == 1 {
-		if err := values.Linode.Client.DeleteVPC(ctx, vpcs[0].ID); err != nil {
+		if err := p.Client.DeleteVPC(ctx, vpcs[0].ID); err != nil {
 			return fmt.Errorf("could not delete VPC %s: %v", vpcs[0].Label, err)
 		}
 		klog.Infof("  Deleted VPC %s\n", *nodeBal[0].Label)
@@ -294,7 +321,7 @@ func GetLinodeMachineDef(manifests []string) *caplv1alpha1.LinodeMachineTemplate
 	return nil
 }
 
-func (CAPL) UpdateManifests(ctx context.Context, manifests []string, values providers.Values) error {
+func (p *Infrastructure) UpdateManifests(ctx context.Context, manifests []string, values *types.Values) error {
 	var LinodeClusterIndex int
 	var LinodeCluster v1alpha2.LinodeCluster
 	for i, manifest := range manifests {
@@ -305,13 +332,13 @@ func (CAPL) UpdateManifests(ctx context.Context, manifests []string, values prov
 		if LinodeCluster.Kind == "LinodeCluster" {
 			LinodeCluster.Spec.ControlPlaneEndpoint = v1beta1.APIEndpoint{
 				Host: values.ClusterEndpoint,
-				Port: int32(values.Linode.NodeBalancerConfig.Port),
+				Port: int32(p.NodeBalancerConfig.Port),
 			}
 			LinodeCluster.Spec.Network = v1alpha2.NetworkSpec{
 				LoadBalancerType:              "NodeBalancer",
 				ApiserverLoadBalancerPort:     6443,
-				NodeBalancerID:                &values.Linode.NodeBalancer.ID,
-				ApiserverNodeBalancerConfigID: &values.Linode.NodeBalancerConfig.ID,
+				NodeBalancerID:                &p.NodeBalancer.ID,
+				ApiserverNodeBalancerConfigID: &p.NodeBalancerConfig.ID,
 			}
 			LinodeClusterIndex = i
 			break
@@ -334,4 +361,14 @@ func GetVPCRef(manifests []string) *caplv1alpha1.LinodeVPC {
 		}
 	}
 	return nil
+}
+
+func (p *Infrastructure) getTemplateValues(v *types.Values) any {
+	return struct {
+		*types.Values
+		Linode *Infrastructure
+	}{
+		v,
+		p,
+	}
 }

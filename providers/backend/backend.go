@@ -8,8 +8,8 @@ import (
 func NewProvider(name string) Provider {
 	switch name {
 	case "s3":
-		return s3.Backend{}
+		return s3.NewBackend()
 	default:
-		return file.Backend{}
+		return file.NewBackend()
 	}
 }
