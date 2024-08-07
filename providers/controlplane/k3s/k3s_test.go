@@ -97,8 +97,7 @@ token: test-token
 			input: providers.Values{ClusterEndpoint: "api-server.test.com",
 				BootstrapToken: "test-token",
 				K3s: providers.K3sValues{
-					ServerConfig: v1beta1.KThreesServerConfig{},
-					AgentConfig:  v1beta1.KThreesAgentConfig{},
+					Config: v1beta1.KThreesConfigSpec{},
 				}}, want: []capiYaml.InitFile{expectedK3sConfig, expectedProxyFile},
 		},
 		{
@@ -106,8 +105,7 @@ token: test-token
 			validateBootstrap: true,
 			input: providers.Values{ClusterEndpoint: "api-server.test.com",
 				K3s: providers.K3sValues{
-					ServerConfig: v1beta1.KThreesServerConfig{},
-					AgentConfig:  v1beta1.KThreesAgentConfig{},
+					Config: v1beta1.KThreesConfigSpec{},
 				}}, want: []capiYaml.InitFile{expectedK3sConfig, expectedProxyFile},
 		},
 	}
@@ -175,8 +173,10 @@ spec:
 			BootstrapManifestDir: "/var/lib/rancher/k3s/server/manifests/",
 			K8sVersion:           "v1.29.5+k3s1",
 			K3s: providers.K3sValues{
-				ServerConfig: v1beta1.KThreesServerConfig{DisableComponents: []string{"servicelb", "traefik"}},
-				AgentConfig:  v1beta1.KThreesAgentConfig{NodeName: "{{ ds.meta_data.label }}"},
+				Config: v1beta1.KThreesConfigSpec{
+					ServerConfig: v1beta1.KThreesServerConfig{DisableComponents: []string{"servicelb", "traefik"}},
+					AgentConfig:  v1beta1.KThreesAgentConfig{NodeName: "{{ ds.meta_data.label }}"},
+				},
 			},
 		}},
 		{name: "err cp not found", input: providers.Values{}, want: providers.Values{}, wantErr: "control plane not found"},
@@ -190,7 +190,8 @@ spec:
 			if tc.wantErr != "" {
 				assert.EqualErrorf(t, err, tc.wantErr, "expected error message: %s", tc.wantErr)
 			} else {
-				assert.Equalf(t, tc.input.K3s, tc.want.K3s, "expected manifest: %v", tc.want.K3s)
+				assert.Equalf(t, tc.input.K3s.Config.AgentConfig, tc.want.K3s.Config.AgentConfig, "expected K3s agent config: %v", tc.want.K3s.Config.AgentConfig)
+				assert.Equalf(t, tc.input.K3s.Config.ServerConfig, tc.want.K3s.Config.ServerConfig, "expected K3s server config: %v", tc.want.K3s.Config.ServerConfig)
 				assert.Equalf(t, tc.input.K8sVersion, tc.want.K8sVersion, "expected manifest: %v", tc.want.K8sVersion)
 				assert.Equalf(t, tc.input.BootstrapManifestDir, tc.want.BootstrapManifestDir, "expected manifest: %v", tc.want.BootstrapManifestDir)
 			}
@@ -347,4 +348,162 @@ spec:
 		})
 	}
 
+}
+
+func TestK3s_GetControlPlaneCertSecret(t *testing.T) {
+	type test struct {
+		name  string
+		input providers.Values
+		want  string
+	}
+	tests := []test{
+		{name: "success", input: providers.Values{
+			ClusterName: "test-cluster", ClusterEndpoint: "api-server.test.com",
+			Manifests: []string{`---
+apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+kind: KThreesControlPlane
+metadata:
+  name: test-vpc-k3s-control-plane
+  namespace: default
+spec:
+  kthreesConfigSpec:
+    agentConfig:
+      nodeName: '{{ ds.meta_data.label }}'
+    preK3sCommands:
+    - sed -i '/swap/d' /etc/fstab
+    - swapoff -a
+    - hostnamectl set-hostname '{{ ds.meta_data.label }}' && hostname -F /etc/hostname
+    serverConfig:
+      disableComponents:
+      - servicelb
+      - traefik
+  replicas: 3
+  version: v1.29.5+k3s1
+`}}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+			controlPlane := K3s{}
+			err := controlPlane.PreDeploy(ctx, &tc.input)
+			assert.NoError(t, err)
+			assert.NotNil(t, tc.input.K3s.Certs)
+			for _, cert := range tc.input.K3s.Certs {
+				assert.NotNil(t, cert.KeyPair)
+
+			}
+			secretFile, err := controlPlane.GetControlPlaneCertSecret(ctx, tc.input)
+			assert.NoError(t, err)
+			assert.Equal(t, secretFile.Path, "/var/lib/rancher/k3s/server/manifests/ca-secrets.yaml")
+			assert.NotNil(t, secretFile.Content)
+
+		})
+	}
+}
+
+func TestK3s_GetControlPlaneCertFiles(t *testing.T) {
+	type test struct {
+		name  string
+		input providers.Values
+		want  string
+	}
+	tests := []test{
+		{name: "success", input: providers.Values{
+			ClusterName: "test-cluster", ClusterEndpoint: "api-server.test.com",
+			Manifests: []string{`---
+apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+kind: KThreesControlPlane
+metadata:
+  name: test-vpc-k3s-control-plane
+  namespace: default
+spec:
+  kthreesConfigSpec:
+    agentConfig:
+      nodeName: '{{ ds.meta_data.label }}'
+    preK3sCommands:
+    - sed -i '/swap/d' /etc/fstab
+    - swapoff -a
+    - hostnamectl set-hostname '{{ ds.meta_data.label }}' && hostname -F /etc/hostname
+    serverConfig:
+      disableComponents:
+      - servicelb
+      - traefik
+  replicas: 3
+  version: v1.29.5+k3s1
+`}}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+			controlPlane := K3s{}
+			err := controlPlane.PreDeploy(ctx, &tc.input)
+			assert.NoError(t, err)
+			assert.NotNil(t, tc.input.K3s.Certs)
+			for _, cert := range tc.input.K3s.Certs {
+				assert.NotNil(t, cert.KeyPair)
+
+			}
+			secretFiles, err := controlPlane.GetControlPlaneCertFiles(ctx, tc.input)
+			assert.NoError(t, err)
+			assert.Equal(t, len(tc.input.K3s.Certs)*2, len(secretFiles))
+			for _, secretFile := range secretFiles {
+				assert.NotNil(t, secretFile.Path)
+				assert.NotNil(t, secretFile.Content)
+			}
+
+		})
+	}
+}
+
+func TestK3s_GetKubeconfig(t *testing.T) {
+	type test struct {
+		name  string
+		input providers.Values
+		want  string
+	}
+	tests := []test{
+		{name: "success", input: providers.Values{
+			ClusterName: "test-cluster", ClusterEndpoint: "api-server.test.com",
+			Manifests: []string{`---
+apiVersion: controlplane.cluster.x-k8s.io/v1beta1
+kind: KThreesControlPlane
+metadata:
+  name: test-vpc-k3s-control-plane
+  namespace: default
+spec:
+  kthreesConfigSpec:
+    agentConfig:
+      nodeName: '{{ ds.meta_data.label }}'
+    preK3sCommands:
+    - sed -i '/swap/d' /etc/fstab
+    - swapoff -a
+    - hostnamectl set-hostname '{{ ds.meta_data.label }}' && hostname -F /etc/hostname
+    serverConfig:
+      disableComponents:
+      - servicelb
+      - traefik
+  replicas: 3
+  version: v1.29.5+k3s1
+`}}},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			ctx := context.Background()
+			controlPlane := K3s{}
+			err := controlPlane.PreDeploy(ctx, &tc.input)
+			assert.NoError(t, err)
+			assert.NotNil(t, tc.input.K3s.Certs)
+			for _, cert := range tc.input.K3s.Certs {
+				assert.NotNil(t, cert.KeyPair)
+
+			}
+			kubeconfig, err := controlPlane.GetKubeconfig(ctx, tc.input)
+			assert.NoError(t, err)
+			assert.NotNil(t, kubeconfig)
+
+		})
+	}
 }

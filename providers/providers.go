@@ -5,8 +5,10 @@ import (
 	"io/fs"
 
 	"github.com/k3s-io/cluster-api-k3s/bootstrap/api/v1beta1"
+	k3sSecret "github.com/k3s-io/cluster-api-k3s/pkg/secret"
 	"github.com/linode/cluster-api-provider-linode/api/v1alpha1"
 	"github.com/linode/linodego"
+	"k8s.io/client-go/tools/clientcmd/api"
 )
 
 // Values is the struct including information parsed by all providers
@@ -17,6 +19,8 @@ type Values struct {
 	BootstrapToken string
 	// K8sVersion is the version parsed from the providers.ControlPlane
 	K8sVersion string
+	// Kubeconfig is the generated kubeconfig to be used by the bootstrap machine and capi-bootstrap client
+	Kubeconfig *api.Config
 	// ClusterKind is the Kind of infrastructure.cluster.x-k8s.io used for this cluster
 	ClusterKind string
 	// ClusterEndpoint is the IP address or hostname to be used to access the kubernetes cluster
@@ -46,8 +50,8 @@ type LinodeValues struct {
 }
 
 type K3sValues struct {
-	ServerConfig v1beta1.KThreesServerConfig
-	AgentConfig  v1beta1.KThreesAgentConfig
+	Config v1beta1.KThreesConfigSpec
+	Certs  k3sSecret.Certificates
 }
 
 // LinodeClient is an interface that includes all linodego calls, so they can be mocked out for testing
