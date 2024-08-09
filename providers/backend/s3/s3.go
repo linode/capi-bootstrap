@@ -7,17 +7,28 @@ import (
 	v1 "k8s.io/client-go/tools/clientcmd/api/v1"
 )
 
-type Backend struct {
+func NewBackend() *Backend {
+	return &Backend{
+		Name: "s3",
+	}
 }
 
-func (Backend) PreCmd(_ context.Context) error {
+type Backend struct {
+	Name string
+}
+
+func (b *Backend) PreCmd(_ context.Context, clusterName string) error {
 	return errors.New("s3 not implemented")
 }
 
-func (Backend) Read(_ context.Context, providerName, clusterName string) (v1.Config, error) {
-	return v1.Config{}, errors.New("s3 not implemented")
+func (b *Backend) Read(_ context.Context, clusterName string) (*v1.Config, error) {
+	return nil, errors.New("s3 not implemented")
 }
 
-func (Backend) Write(_ context.Context, providerName, clusterName string, config v1.Config) error {
+func (b *Backend) Write(_ context.Context, clusterName string, config *v1.Config) error {
+	return errors.New("s3 not implemented")
+}
+
+func (b *Backend) Delete(_ context.Context, clusterName string) error {
 	return errors.New("s3 not implemented")
 }

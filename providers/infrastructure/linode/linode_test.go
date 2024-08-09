@@ -1,8 +1,8 @@
 package Linode
 
 import (
-	"capi-bootstrap/providers"
 	mockClient "capi-bootstrap/providers/infrastructure/linode/mock"
+	"capi-bootstrap/types"
 	capiYaml "capi-bootstrap/yaml"
 	"context"
 	"errors"
@@ -21,7 +21,7 @@ import (
 func TestCAPL_GenerateCapiFile(t *testing.T) {
 	type test struct {
 		name  string
-		input providers.Values
+		input types.Values
 		want  *capiYaml.InitFile
 	}
 	expectedCapiFile := capiYaml.InitFile{
@@ -55,14 +55,17 @@ spec:
 `,
 	}
 	tests := []test{
-		{name: "success", input: providers.Values{BootstrapManifestDir: "/test-manifests/", Linode: providers.LinodeValues{Token: "test-token"}}, want: ptr.To(expectedCapiFile)},
+		{name: "success", input: types.Values{BootstrapManifestDir: "/test-manifests/"}, want: ptr.To(expectedCapiFile)},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			ctx := context.Background()
-			Infra := CAPL{}
-			actual, _ := Infra.GenerateCapiFile(ctx, tc.input)
+			Infra := &Infrastructure{
+				Token: "test-token",
+			}
+
+			actual, _ := Infra.GenerateCapiFile(ctx, &tc.input)
 			assert.Equal(t, tc.want.Path, actual.Path, "expected file path: %s", tc.want.Path)
 			assert.Equal(t, tc.want.Content, actual.Content, "expected file contents: %s", tc.want.Content)
 		})
@@ -72,7 +75,7 @@ spec:
 func TestCAPL_GenerateCapiMachine(t *testing.T) {
 	type test struct {
 		name  string
-		input providers.Values
+		input types.Values
 		want  *capiYaml.InitFile
 	}
 	expectedCapiPivotFile := capiYaml.InitFile{
@@ -117,14 +120,14 @@ spec:
 `,
 	}
 	tests := []test{
-		{name: "success", input: providers.Values{ClusterName: "test-cluster", K8sVersion: "1.30.0", BootstrapManifestDir: "/test-manifests/"}, want: ptr.To(expectedCapiPivotFile)},
+		{name: "success", input: types.Values{ClusterName: "test-cluster", K8sVersion: "1.30.0", BootstrapManifestDir: "/test-manifests/"}, want: ptr.To(expectedCapiPivotFile)},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			ctx := context.Background()
-			Infra := CAPL{}
-			actual, _ := Infra.GenerateCapiMachine(ctx, tc.input)
+			Infra := Infrastructure{}
+			actual, _ := Infra.GenerateCapiMachine(ctx, &tc.input)
 			assert.Equal(t, tc.want.Path, actual.Path, "expected file path: %s", tc.want.Path)
 			assert.Equal(t, tc.want.Content, actual.Content, "expected file contents: %s", tc.want.Content)
 		})
@@ -134,8 +137,9 @@ spec:
 func TestCAPL_GenerateAdditionalFiles(t *testing.T) {
 	type test struct {
 		name  string
-		input providers.Values
+		input types.Values
 		want  []capiYaml.InitFile
+		infra *Infrastructure
 	}
 	expectedVPCFile := []capiYaml.InitFile{{
 		Path: "/test-manifests/linode-ccm.yaml",
@@ -210,15 +214,14 @@ stringData:
 `,
 	}}
 	tests := []test{
-		{name: "success vpc", input: providers.Values{ClusterName: "test-cluster", K8sVersion: "1.30.0", BootstrapManifestDir: "/test-manifests/", Linode: providers.LinodeValues{Token: "test-token", VPC: &v1alpha1.LinodeVPC{}}}, want: expectedVPCFile},
-		{name: "success no vpc", input: providers.Values{ClusterName: "test-cluster", K8sVersion: "1.30.0", BootstrapManifestDir: "/test-manifests/", Linode: providers.LinodeValues{Token: "test-token"}}, want: expectedVPCLessFile},
+		{name: "success vpc", infra: &Infrastructure{Token: "test-token", VPC: &v1alpha1.LinodeVPC{}}, input: types.Values{ClusterName: "test-cluster", K8sVersion: "1.30.0", BootstrapManifestDir: "/test-manifests/"}, want: expectedVPCFile},
+		{name: "success no vpc", infra: &Infrastructure{Token: "test-token"}, input: types.Values{ClusterName: "test-cluster", K8sVersion: "1.30.0", BootstrapManifestDir: "/test-manifests/"}, want: expectedVPCLessFile},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			ctx := context.Background()
-			Infra := CAPL{}
-			actualFiles, _ := Infra.GenerateAdditionalFiles(ctx, tc.input)
+			actualFiles, _ := tc.infra.GenerateAdditionalFiles(ctx, &tc.input)
 			for i, actual := range actualFiles {
 				assert.Equal(t, tc.want[i].Path, actual.Path, "expected file path: %s", tc.want[i].Path)
 				assert.Equal(t, tc.want[i].Content, actual.Content, "expected file contents: %s", tc.want[i].Content)
@@ -242,14 +245,14 @@ func TestCAPL_PreCmd(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Setenv("LINODE_TOKEN", tc.input)
 			ctx := context.Background()
-			Infra := CAPL{}
-			actualValues := providers.Values{}
+			Infra := Infrastructure{}
+			actualValues := types.Values{}
 			err := Infra.PreCmd(ctx, &actualValues)
 			if tc.err != "" {
 				assert.EqualErrorf(t, err, tc.err, "expected error message: %s", tc.err)
 			} else {
 				assert.NoError(t, err)
-				assert.NotNil(t, actualValues.Linode.Client)
+				assert.NotNil(t, Infra.Client)
 			}
 		})
 	}
@@ -258,8 +261,8 @@ func TestCAPL_PreCmd(t *testing.T) {
 func TestCAPL_PreDeploy(t *testing.T) {
 	type test struct {
 		name       string
-		input      providers.Values
-		want       providers.Values
+		input      types.Values
+		want       types.Values
 		wantErr    string
 		mockClient func(ctx context.Context, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient
 	}
@@ -295,7 +298,7 @@ spec:
 	tests := []test{
 		{
 			name:  "success",
-			input: providers.Values{ClusterName: "test-cluster", Manifests: manifests, BootstrapManifestDir: "/test-manifests/", Linode: providers.LinodeValues{Token: "test-token"}},
+			input: types.Values{ClusterName: "test-cluster", Manifests: manifests, BootstrapManifestDir: "/test-manifests/"},
 			mockClient: func(ctx context.Context, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient {
 				mock.EXPECT().
 					ListNodeBalancers(ctx, linodego.NewListOptions(1, `{"tags":"test-cluster"}`)).
@@ -317,16 +320,13 @@ spec:
 					Return(ptr.To(linodego.NodeBalancerConfig{ID: 789}), nil)
 				return mock
 			},
-			want: providers.Values{
+			want: types.Values{
 				ClusterEndpoint: "1.2.3.4",
-				Linode: providers.LinodeValues{
-					AuthorizedKeys: "test-key",
-				},
 			},
 		},
 		{
 			name:  "err machine not found",
-			input: providers.Values{ClusterName: "test-cluster", BootstrapManifestDir: "/test-manifests/", Linode: providers.LinodeValues{Token: "test-token"}},
+			input: types.Values{ClusterName: "test-cluster", BootstrapManifestDir: "/test-manifests/"},
 			mockClient: func(ctx context.Context, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient {
 				return mock
 			},
@@ -334,7 +334,7 @@ spec:
 		},
 		{
 			name:  "err list NodeBalancer",
-			input: providers.Values{ClusterName: "test-cluster", Manifests: manifests, BootstrapManifestDir: "/test-manifests/", Linode: providers.LinodeValues{Token: "test-token"}},
+			input: types.Values{ClusterName: "test-cluster", Manifests: manifests, BootstrapManifestDir: "/test-manifests/"},
 			mockClient: func(ctx context.Context, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient {
 				mock.EXPECT().
 					ListNodeBalancers(ctx, linodego.NewListOptions(1, `{"tags":"test-cluster"}`)).
@@ -345,7 +345,7 @@ spec:
 		},
 		{
 			name:  "err existing NodeBalancer",
-			input: providers.Values{ClusterName: "test-cluster", Manifests: manifests, BootstrapManifestDir: "/test-manifests/", Linode: providers.LinodeValues{Token: "test-token"}},
+			input: types.Values{ClusterName: "test-cluster", Manifests: manifests, BootstrapManifestDir: "/test-manifests/"},
 			mockClient: func(ctx context.Context, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient {
 				mock.EXPECT().
 					ListNodeBalancers(ctx, linodego.NewListOptions(1, `{"tags":"test-cluster"}`)).
@@ -356,7 +356,7 @@ spec:
 		},
 		{
 			name:  "err create NodeBalancer",
-			input: providers.Values{ClusterName: "test-cluster", Manifests: manifests, BootstrapManifestDir: "/test-manifests/", Linode: providers.LinodeValues{Token: "test-token"}},
+			input: types.Values{ClusterName: "test-cluster", Manifests: manifests, BootstrapManifestDir: "/test-manifests/"},
 			mockClient: func(ctx context.Context, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient {
 				mock.EXPECT().
 					ListNodeBalancers(ctx, linodego.NewListOptions(1, `{"tags":"test-cluster"}`)).
@@ -374,7 +374,7 @@ spec:
 		},
 		{
 			name:  "err no ipv4",
-			input: providers.Values{ClusterName: "test-cluster", Manifests: manifests, BootstrapManifestDir: "/test-manifests/", Linode: providers.LinodeValues{Token: "test-token"}},
+			input: types.Values{ClusterName: "test-cluster", Manifests: manifests, BootstrapManifestDir: "/test-manifests/"},
 			mockClient: func(ctx context.Context, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient {
 				mock.EXPECT().
 					ListNodeBalancers(ctx, linodego.NewListOptions(1, `{"tags":"test-cluster"}`)).
@@ -407,17 +407,20 @@ spec:
 			err := os.Setenv("AUTHORIZED_KEYS", "test-key")
 			assert.NoError(t, err)
 			ctx := context.Background()
-			tc.input.Linode.Client = tc.mockClient(ctx, mock)
-			Infra := CAPL{}
+			Infra := Infrastructure{
+				Client:         tc.mockClient(ctx, mock),
+				Token:          "test-token",
+				AuthorizedKeys: "test-key",
+			}
 			err = Infra.PreDeploy(ctx, &tc.input)
 			if tc.wantErr == "" {
 				assert.NoError(t, err)
 				assert.Equal(t, tc.want.ClusterEndpoint, tc.input.ClusterEndpoint)
-				assert.Equal(t, tc.want.Linode.AuthorizedKeys, tc.input.Linode.AuthorizedKeys)
-				assert.NotNil(t, tc.input.Linode.Machine)
-				assert.NotNil(t, tc.input.Linode.NodeBalancer)
-				assert.NotNil(t, tc.input.Linode.NodeBalancerConfig)
-				assert.NotNil(t, tc.input.Linode.VPC)
+				assert.Equal(t, Infra.AuthorizedKeys, Infra.AuthorizedKeys)
+				assert.NotNil(t, Infra.Machine)
+				assert.NotNil(t, Infra.NodeBalancer)
+				assert.NotNil(t, Infra.NodeBalancerConfig)
+				assert.NotNil(t, Infra.VPC)
 			} else {
 				assert.EqualErrorf(t, err, tc.wantErr, "expected error message: %s", tc.wantErr)
 			}
@@ -430,49 +433,17 @@ func TestCAPL_Deploy(t *testing.T) {
 	metadata := []byte("echo 'success'")
 	type test struct {
 		name       string
-		input      providers.Values
-		want       providers.Values
+		input      types.Values
+		want       types.Values
 		wantErr    string
 		mockClient func(ctx context.Context, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient
 	}
 	tests := []test{
 		{
 			name: "success",
-			input: providers.Values{
+			input: types.Values{
 				ClusterName:          "test-cluster",
 				BootstrapManifestDir: "/test-manifests/",
-				Linode: providers.LinodeValues{
-					Machine: &v1alpha1.LinodeMachineTemplate{
-						Spec: v1alpha1.LinodeMachineTemplateSpec{
-							Template: v1alpha1.LinodeMachineTemplateResource{Spec: v1alpha1.LinodeMachineSpec{
-								Image:  "linode/ubuntu",
-								Region: "us-mia",
-								Type:   "nanode",
-							}},
-						},
-					},
-					VPC: &v1alpha1.LinodeVPC{
-						ObjectMeta: v1.ObjectMeta{Name: "test-cluster"},
-						Spec: v1alpha1.LinodeVPCSpec{
-							VPCID:       ptr.To(987),
-							Description: "",
-							Region:      "us-mia",
-							Subnets: []v1alpha1.VPCSubnetCreateOptions{{
-								Label: "pod network",
-								IPv4:  "10.0.0.0/8",
-							}},
-							CredentialsRef: nil,
-						},
-					},
-					NodeBalancer: &linodego.NodeBalancer{
-						ID: 1234,
-					},
-					NodeBalancerConfig: &linodego.NodeBalancerConfig{
-						ID: 5678,
-					},
-					Token:          "test-token",
-					AuthorizedKeys: "test-key",
-				},
 			},
 			mockClient: func(ctx context.Context, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient {
 				mock.EXPECT().
@@ -516,11 +487,8 @@ func TestCAPL_Deploy(t *testing.T) {
 					Return(ptr.To(linodego.NodeBalancerNode{Label: "test-node"}), nil)
 				return mock
 			},
-			want: providers.Values{
+			want: types.Values{
 				ClusterEndpoint: "1.2.3.4",
-				Linode: providers.LinodeValues{
-					AuthorizedKeys: "test-key",
-				},
 			},
 		},
 	}
@@ -533,15 +501,45 @@ func TestCAPL_Deploy(t *testing.T) {
 			err := os.Setenv("AUTHORIZED_KEYS", "test-key")
 			assert.NoError(t, err)
 			ctx := context.Background()
-			tc.input.Linode.Client = tc.mockClient(ctx, mock)
-			Infra := CAPL{}
+			Infra := Infrastructure{
+				Client: tc.mockClient(ctx, mock),
+				Machine: &v1alpha1.LinodeMachineTemplate{
+					Spec: v1alpha1.LinodeMachineTemplateSpec{
+						Template: v1alpha1.LinodeMachineTemplateResource{Spec: v1alpha1.LinodeMachineSpec{
+							Image:  "linode/ubuntu",
+							Region: "us-mia",
+							Type:   "nanode",
+						}},
+					},
+				},
+				VPC: &v1alpha1.LinodeVPC{
+					ObjectMeta: v1.ObjectMeta{Name: "test-cluster"},
+					Spec: v1alpha1.LinodeVPCSpec{
+						VPCID:       ptr.To(987),
+						Description: "",
+						Region:      "us-mia",
+						Subnets: []v1alpha1.VPCSubnetCreateOptions{{
+							Label: "pod network",
+							IPv4:  "10.0.0.0/8",
+						}},
+						CredentialsRef: nil,
+					},
+				},
+				NodeBalancer: &linodego.NodeBalancer{
+					ID: 1234,
+				},
+				NodeBalancerConfig: &linodego.NodeBalancerConfig{
+					ID: 5678,
+				},
+				Token:          "test-token",
+				AuthorizedKeys: "test-key",
+			}
 			err = Infra.Deploy(ctx, &tc.input, metadata)
 			if tc.wantErr == "" {
 				assert.NoError(t, err)
 			} else {
 				assert.EqualErrorf(t, err, tc.wantErr, "expected error message: %s", tc.wantErr)
 			}
-
 		})
 	}
 }
@@ -549,9 +547,9 @@ func TestCAPL_Deploy(t *testing.T) {
 func TestCAPL_Delete(t *testing.T) {
 	type test struct {
 		name       string
-		input      providers.Values
+		input      types.Values
 		force      bool
-		want       providers.Values
+		want       types.Values
 		wantErr    string
 		mockClient func(ctx context.Context, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient
 	}
@@ -559,11 +557,8 @@ func TestCAPL_Delete(t *testing.T) {
 	tests := []test{
 		{
 			name: "success",
-			input: providers.Values{
+			input: types.Values{
 				ClusterName: "test-cluster",
-				Linode: providers.LinodeValues{
-					Token: "test-token",
-				},
 			},
 			mockClient: func(ctx context.Context, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient {
 				mock.EXPECT().
@@ -596,20 +591,14 @@ func TestCAPL_Delete(t *testing.T) {
 				return mock
 			},
 			force: true,
-			want: providers.Values{
+			want: types.Values{
 				ClusterEndpoint: "1.2.3.4",
-				Linode: providers.LinodeValues{
-					AuthorizedKeys: "test-key",
-				},
 			},
 		},
 		{
 			name: "err list instances",
-			input: providers.Values{
+			input: types.Values{
 				ClusterName: "test-cluster",
-				Linode: providers.LinodeValues{
-					Token: "test-token",
-				},
 			},
 			mockClient: func(ctx context.Context, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient {
 				mock.EXPECT().
@@ -622,11 +611,8 @@ func TestCAPL_Delete(t *testing.T) {
 		},
 		{
 			name: "err list VPCs",
-			input: providers.Values{
+			input: types.Values{
 				ClusterName: "test-cluster",
-				Linode: providers.LinodeValues{
-					Token: "test-token",
-				},
 			},
 			mockClient: func(ctx context.Context, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient {
 				mock.EXPECT().
@@ -642,11 +628,8 @@ func TestCAPL_Delete(t *testing.T) {
 		},
 		{
 			name: "err list NodeBalancers",
-			input: providers.Values{
+			input: types.Values{
 				ClusterName: "test-cluster",
-				Linode: providers.LinodeValues{
-					Token: "test-token",
-				},
 			},
 			mockClient: func(ctx context.Context, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient {
 				mock.EXPECT().
@@ -665,11 +648,8 @@ func TestCAPL_Delete(t *testing.T) {
 		},
 		{
 			name: "err delete instance",
-			input: providers.Values{
+			input: types.Values{
 				ClusterName: "test-cluster",
-				Linode: providers.LinodeValues{
-					Token: "test-token",
-				},
 			},
 			mockClient: func(ctx context.Context, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient {
 				mock.EXPECT().
@@ -691,11 +671,8 @@ func TestCAPL_Delete(t *testing.T) {
 		},
 		{
 			name: "err delete NodeBalancers",
-			input: providers.Values{
+			input: types.Values{
 				ClusterName: "test-cluster",
-				Linode: providers.LinodeValues{
-					Token: "test-token",
-				},
 			},
 			mockClient: func(ctx context.Context, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient {
 				mock.EXPECT().
@@ -720,11 +697,8 @@ func TestCAPL_Delete(t *testing.T) {
 		},
 		{
 			name: "err delete VPC",
-			input: providers.Values{
+			input: types.Values{
 				ClusterName: "test-cluster",
-				Linode: providers.LinodeValues{
-					Token: "test-token",
-				},
 			},
 			mockClient: func(ctx context.Context, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient {
 				mock.EXPECT().
@@ -760,8 +734,11 @@ func TestCAPL_Delete(t *testing.T) {
 			err := os.Setenv("AUTHORIZED_KEYS", "test-key")
 			assert.NoError(t, err)
 			ctx := context.Background()
-			tc.input.Linode.Client = tc.mockClient(ctx, mock)
-			Infra := CAPL{}
+			Infra := Infrastructure{
+				Client:         tc.mockClient(ctx, mock),
+				Token:          "test-token",
+				AuthorizedKeys: "test-key",
+			}
 			err = Infra.Delete(ctx, &tc.input, tc.force)
 			if tc.wantErr == "" {
 				assert.NoError(t, err)
@@ -774,7 +751,7 @@ func TestCAPL_Delete(t *testing.T) {
 func TestCAPL_UpdateManifests(t *testing.T) {
 	type test struct {
 		name  string
-		input providers.Values
+		input types.Values
 		want  []string
 	}
 	manifests := []string{`---
@@ -847,13 +824,9 @@ spec:
 	tests := []test{
 		{
 			name: "success",
-			input: providers.Values{
+			input: types.Values{
 				ClusterName:     "test-cluster",
 				ClusterEndpoint: "api-server.test.com",
-				Linode: providers.LinodeValues{
-					NodeBalancer:       &linodego.NodeBalancer{ID: 1234},
-					NodeBalancerConfig: &linodego.NodeBalancerConfig{ID: 5678, Port: 6443},
-				},
 			},
 			want: expectedManifests},
 	}
@@ -861,8 +834,11 @@ spec:
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			ctx := context.Background()
-			infra := CAPL{}
-			err := infra.UpdateManifests(ctx, manifests, tc.input)
+			infra := &Infrastructure{
+				NodeBalancer:       &linodego.NodeBalancer{ID: 1234},
+				NodeBalancerConfig: &linodego.NodeBalancerConfig{ID: 5678, Port: 6443},
+			}
+			err := infra.UpdateManifests(ctx, manifests, &tc.input)
 			assert.NoError(t, err)
 			for i, actualFile := range tc.input.Manifests {
 				assert.Equal(t, tc.want[i], actualFile, "expected file: %s", tc.want[i])
@@ -870,10 +846,14 @@ spec:
 		})
 	}
 }
+
 func TestCAPL_PostDeploy(t *testing.T) {
 	ctx := context.Background()
-	infra := CAPL{}
-	actualValues := providers.Values{}
+	infra := Infrastructure{
+		NodeBalancer:       &linodego.NodeBalancer{ID: 1234},
+		NodeBalancerConfig: &linodego.NodeBalancerConfig{ID: 5678, Port: 6443},
+	}
+	actualValues := types.Values{}
 	err := infra.PostDeploy(ctx, &actualValues)
 	assert.NoError(t, err)
 }

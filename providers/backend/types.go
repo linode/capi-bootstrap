@@ -7,7 +7,8 @@ import (
 )
 
 type Provider interface {
-	PreCmd(context.Context) error
-	Read(context.Context, string, string) (v1.Config, error)
-	Write(context.Context, string, string, v1.Config) error
+	PreCmd(context.Context, string) error
+	Read(context.Context, string) (*v1.Config, error)
+	Write(context.Context, string, *v1.Config) error
+	Delete(context.Context, string) error
 }

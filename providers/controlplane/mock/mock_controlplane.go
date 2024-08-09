@@ -10,7 +10,7 @@
 package mock_controlplane
 
 import (
-	providers "capi-bootstrap/providers"
+	types "capi-bootstrap/types"
 	yaml "capi-bootstrap/yaml"
 	context "context"
 	reflect "reflect"
@@ -42,7 +42,7 @@ func (m *MockProvider) EXPECT() *MockProviderMockRecorder {
 }
 
 // GenerateAdditionalFiles mocks base method.
-func (m *MockProvider) GenerateAdditionalFiles(ctx context.Context, values providers.Values) ([]yaml.InitFile, error) {
+func (m *MockProvider) GenerateAdditionalFiles(ctx context.Context, values *types.Values) ([]yaml.InitFile, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GenerateAdditionalFiles", ctx, values)
 	ret0, _ := ret[0].([]yaml.InitFile)
@@ -57,7 +57,7 @@ func (mr *MockProviderMockRecorder) GenerateAdditionalFiles(ctx, values any) *go
 }
 
 // GenerateCapiFile mocks base method.
-func (m *MockProvider) GenerateCapiFile(ctx context.Context, values providers.Values) (*yaml.InitFile, error) {
+func (m *MockProvider) GenerateCapiFile(ctx context.Context, values *types.Values) (*yaml.InitFile, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GenerateCapiFile", ctx, values)
 	ret0, _ := ret[0].(*yaml.InitFile)
@@ -72,7 +72,7 @@ func (mr *MockProviderMockRecorder) GenerateCapiFile(ctx, values any) *gomock.Ca
 }
 
 // GenerateInitScript mocks base method.
-func (m *MockProvider) GenerateInitScript(ctx context.Context, initScriptPath string, values providers.Values) (*yaml.InitFile, error) {
+func (m *MockProvider) GenerateInitScript(ctx context.Context, initScriptPath string, values *types.Values) (*yaml.InitFile, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GenerateInitScript", ctx, initScriptPath, values)
 	ret0, _ := ret[0].(*yaml.InitFile)
@@ -87,7 +87,7 @@ func (mr *MockProviderMockRecorder) GenerateInitScript(ctx, initScriptPath, valu
 }
 
 // GenerateRunCommand mocks base method.
-func (m *MockProvider) GenerateRunCommand(ctx context.Context, values providers.Values) ([]string, error) {
+func (m *MockProvider) GenerateRunCommand(ctx context.Context, values *types.Values) ([]string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GenerateRunCommand", ctx, values)
 	ret0, _ := ret[0].([]string)
@@ -102,7 +102,7 @@ func (mr *MockProviderMockRecorder) GenerateRunCommand(ctx, values any) *gomock.
 }
 
 // PreDeploy mocks base method.
-func (m *MockProvider) PreDeploy(ctx context.Context, values *providers.Values) error {
+func (m *MockProvider) PreDeploy(ctx context.Context, values *types.Values) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PreDeploy", ctx, values)
 	ret0, _ := ret[0].(error)
@@ -116,7 +116,7 @@ func (mr *MockProviderMockRecorder) PreDeploy(ctx, values any) *gomock.Call {
 }
 
 // UpdateManifests mocks base method.
-func (m *MockProvider) UpdateManifests(ctx context.Context, manifests []string, values providers.Values) (*yaml.ParsedManifest, error) {
+func (m *MockProvider) UpdateManifests(ctx context.Context, manifests []string, values *types.Values) (*yaml.ParsedManifest, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateManifests", ctx, manifests, values)
 	ret0, _ := ret[0].(*yaml.ParsedManifest)

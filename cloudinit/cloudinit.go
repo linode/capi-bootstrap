@@ -3,9 +3,9 @@ package cloudinit
 import (
 	"archive/tar"
 	"bytes"
-	"capi-bootstrap/providers"
 	"capi-bootstrap/providers/controlplane"
 	"capi-bootstrap/providers/infrastructure"
+	"capi-bootstrap/types"
 	"compress/gzip"
 	"context"
 	"embed"
@@ -24,7 +24,7 @@ import (
 //go:embed files
 var files embed.FS
 
-func GenerateCloudInit(ctx context.Context, values providers.Values, infra infrastructure.Provider, controlPlane controlplane.Provider, tarWriteFiles bool) ([]byte, error) {
+func GenerateCloudInit(ctx context.Context, values *types.Values, infra infrastructure.Provider, controlPlane controlplane.Provider, tarWriteFiles bool) ([]byte, error) {
 	debugCmds := []string{"curl -s -L https://github.com/derailed/k9s/releases/download/v0.32.4/k9s_Linux_amd64.tar.gz | tar -xvz -C /usr/local/bin k9s",
 		`echo "alias k=\"k3s kubectl\"" >> /root/.bashrc`,
 		"echo \"export KUBECONFIG=/etc/rancher/k3s/k3s.yaml\" >> /root/.bashrc"}
@@ -123,17 +123,17 @@ func GenerateCloudInit(ctx context.Context, values providers.Values, infra infra
 	return renderedCloudConfig, nil
 }
 
-func generateCertManagerManifest(values providers.Values) (*capiYaml.InitFile, error) {
+func generateCertManagerManifest(values *types.Values) (*capiYaml.InitFile, error) {
 	filePath := filepath.Join(values.BootstrapManifestDir, "cert-manager.yaml")
 	return capiYaml.ConstructFile(filePath, filepath.Join("files", "cert-manager.yaml"), files, values, false)
 }
 
-func generateCapiOperator(values providers.Values) (*capiYaml.InitFile, error) {
+func generateCapiOperator(values *types.Values) (*capiYaml.InitFile, error) {
 	filePath := filepath.Join(values.BootstrapManifestDir, "capi-operator.yaml")
 	return capiYaml.ConstructFile(filePath, filepath.Join("files", "capi-operator.yaml"), files, values, false)
 }
 
-func GenerateCapiManifests(ctx context.Context, values providers.Values, infra infrastructure.Provider, controlPlane controlplane.Provider, escapeYaml bool) (*capiYaml.ParsedManifest, error) {
+func GenerateCapiManifests(ctx context.Context, values *types.Values, infra infrastructure.Provider, controlPlane controlplane.Provider, escapeYaml bool) (*capiYaml.ParsedManifest, error) {
 	filePath := filepath.Join(values.BootstrapManifestDir, "capi-manifests.yaml")
 	cloudInitFile, err := capiYaml.ConstructFile(filePath, values.ManifestFile, values.ManifestFS, values, escapeYaml)
 	if err != nil {
@@ -191,7 +191,7 @@ func createTar(cloudFiles []capiYaml.InitFile) (io.Reader, error) {
 	return &buf, nil
 }
 
-func UpdateManifest(ctx context.Context, yamlManifest string, infra infrastructure.Provider, controlPlane controlplane.Provider, values providers.Values) ([]byte, *capiYaml.ParsedManifest, error) {
+func UpdateManifest(ctx context.Context, yamlManifest string, infra infrastructure.Provider, controlPlane controlplane.Provider, values *types.Values) ([]byte, *capiYaml.ParsedManifest, error) {
 	manifests := strings.Split(yamlManifest, "---")
 	controlPlaneManifests := &capiYaml.ParsedManifest{}
 	var err error

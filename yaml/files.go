@@ -2,7 +2,6 @@ package yaml
 
 import (
 	"bytes"
-	"capi-bootstrap/providers"
 	"fmt"
 	"io/fs"
 	"path/filepath"
@@ -13,7 +12,7 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-func ConstructFile(filePath string, localPath string, filesystem fs.FS, values providers.Values, escapeYaml bool) (*InitFile, error) {
+func ConstructFile(filePath string, localPath string, filesystem fs.FS, values any, escapeYaml bool) (*InitFile, error) {
 	manifest, err := templateManifest(filesystem, localPath, values, escapeYaml)
 	if err != nil {
 		return nil, err
@@ -26,7 +25,7 @@ func ConstructFile(filePath string, localPath string, filesystem fs.FS, values p
 	return &initFile, nil
 }
 
-func templateManifest(filesystem fs.FS, localPath string, templateValues providers.Values, escapeFile bool) ([]byte, error) {
+func templateManifest(filesystem fs.FS, localPath string, templateValues any, escapeFile bool) ([]byte, error) {
 	var err error
 	tmpl := template.New(filepath.Base(localPath))
 	tmpl.Delims("[[[", "]]]")
