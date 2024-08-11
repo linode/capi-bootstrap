@@ -104,6 +104,8 @@ spec:
   clusterName: "test-cluster"
   providerID: linode://{{ ds.meta_data.id }}
   version: "1.30.0"
+  authorizedKeys:
+    - ssh-rsa blah
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1alpha2
 kind: LinodeMachine
@@ -120,10 +122,12 @@ spec:
   providerID: "linode://{{ ds.meta_data.id }}"
   region: "{{ ds.meta_data.region }}"
   type: g6-standard-6
+  authorizedKeys:
+    - ssh-rsa blah
 `,
 	}
 	tests := []test{
-		{name: "success", input: types.Values{ClusterName: "test-cluster", K8sVersion: "1.30.0", BootstrapManifestDir: "/test-manifests/"}, want: ptr.To(expectedCapiPivotFile)},
+		{name: "success", input: types.Values{ClusterName: "test-cluster", K8sVersion: "1.30.0", BootstrapManifestDir: "/test-manifests/", SSHAuthorizedKeys: []string{"ssh-rsa blah"}}, want: ptr.To(expectedCapiPivotFile)},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -412,7 +416,7 @@ spec:
 			Infra := Infrastructure{
 				Client:         tc.mockClient(ctx, t, mock),
 				Token:          "test-token",
-				AuthorizedKeys: "test-key",
+				AuthorizedKeys: []string{"test-key"},
 			}
 			err := Infra.PreDeploy(ctx, &tc.input)
 			if tc.wantErr == "" {
@@ -531,7 +535,7 @@ func TestCAPL_Deploy(t *testing.T) {
 					ID: 5678,
 				},
 				Token:          "test-token",
-				AuthorizedKeys: "test-key",
+				AuthorizedKeys: []string{"test-key"},
 			}
 			err := Infra.Deploy(ctx, &tc.input, metadata)
 			if tc.wantErr == "" {
@@ -734,7 +738,7 @@ func TestCAPL_Delete(t *testing.T) {
 			Infra := Infrastructure{
 				Client:         tc.mockClient(ctx, t, mock),
 				Token:          "test-token",
-				AuthorizedKeys: "test-key",
+				AuthorizedKeys: []string{"test-key"},
 			}
 			err := Infra.Delete(ctx, &tc.input, tc.force)
 			if tc.wantErr == "" {

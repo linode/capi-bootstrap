@@ -19,6 +19,11 @@ spec:
   clusterName: "[[[ .ClusterName ]]]"
   providerID: linode://{{ ds.meta_data.id }}
   version: "[[[ .K8sVersion ]]]"
+  [[[- if .SSHAuthorizedKeys ]]]
+  authorizedKeys:[[[ range .SSHAuthorizedKeys ]]]
+    - [[[ . ]]][[[ "\n" ]]]
+  [[[- end -]]]
+  [[[- end -]]]
 ---
 apiVersion: infrastructure.cluster.x-k8s.io/v1alpha2
 kind: LinodeMachine
@@ -35,3 +40,8 @@ spec:
   providerID: "linode://{{ ds.meta_data.id }}"
   region: "{{ ds.meta_data.region }}"
   type: g6-standard-6
+  [[[- if .SSHAuthorizedKeys ]]]
+  authorizedKeys:[[[ range .SSHAuthorizedKeys ]]]
+    - [[[ . ]]][[[ "\n" ]]]
+  [[[- end -]]]
+  [[[- end -]]]

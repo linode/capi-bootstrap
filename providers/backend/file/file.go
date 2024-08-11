@@ -3,6 +3,7 @@ package file
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 	"k8s.io/klog/v2"
 	k8syaml "sigs.k8s.io/yaml"
 
+	"capi-bootstrap/types"
 	capiYaml "capi-bootstrap/yaml"
 )
 
@@ -27,6 +29,10 @@ func (b *Backend) WriteConfig(ctx context.Context, clusterName string, config *v
 
 func (b *Backend) WriteFiles(ctx context.Context, clusterName string, cloudInitFile *capiYaml.Config) ([]string, error) {
 	panic("implement me")
+}
+
+func (b *Backend) ListClusters(_ context.Context) ([]types.ClusterInfo, error) {
+	return nil, errors.New("[file backend] ListClusters not implemented")
 }
 
 type Backend struct {

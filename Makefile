@@ -5,8 +5,10 @@ GOLANGCI_LINT_VERSION ?= v1.60.1
 MOCKGEN_VERSION ?= v0.4.0
 GOLANGCI_LINT ?= $(LOCALBIN)/golangci-lint-$(GOLANGCI_LINT_VERSION)
 MOCKGEN ?= $(LOCALBIN)/mockgen-$(MOCKGEN_VERSION)
+LOCAL_TOOLS ?= ${GOLANGCI_LINT} ${MOCKGEN}
 INFRASTRUCTURE_PROVIDERS ?= linode
 BACKEND_PROVIDERS ?= s3
+
 all: clean fmt test vet build
 
 .PHONY: build
@@ -38,6 +40,9 @@ generate: mockgen
 	@$(MOCKGEN) -destination=providers/infrastructure/mock/mock_types.go -source=providers/infrastructure/types.go
 
 
+.PHONY: quick-build
+quick-build: clean build
+
 .PHONY: vet
 vet:
 	go vet ./...
@@ -62,8 +67,11 @@ $(MOCKGEN): $(LOCALBIN)
 
 .PHONY: clean
 clean:
-	-rm -f $(BUILD_TARGET)
-	-rm -f $(LOCALBIN)
+	@rm -f $(BUILD_TARGET)
+	@for tool in $(LOCAL_TOOLS); do \
+		rm -f $${tool} ; \
+	done
+
 
 # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
 # $1 - target path with name of binary (ideally with version)

@@ -42,7 +42,7 @@ type Infrastructure struct {
 	NodeBalancer       *linodego.NodeBalancer          `json:"-"`
 	NodeBalancerConfig *linodego.NodeBalancerConfig    `json:"-"`
 	Token              string
-	AuthorizedKeys     string
+	AuthorizedKeys     []string
 	VPC                *v1alpha2.LinodeVPC `json:"-"`
 }
 
@@ -83,6 +83,11 @@ func (p *Infrastructure) PreCmd(ctx context.Context, values *types.Values) error
 	}
 	client := NewClient(p.Token, ctx)
 	p.Client = &client
+
+	if len(values.SSHAuthorizedKeys) > 0 {
+		p.AuthorizedKeys = values.SSHAuthorizedKeys
+	}
+
 	return nil
 }
 
@@ -129,7 +134,6 @@ func (p *Infrastructure) PreDeploy(ctx context.Context, values *types.Values) er
 		return errors.New("no node IPv4 address on NodeBalancer")
 	}
 
-	p.AuthorizedKeys = os.Getenv("AUTHORIZED_KEYS")
 	values.ClusterEndpoint = *p.NodeBalancer.IPv4
 
 	if vpcDef := GetVPCRef(values.Manifests); vpcDef != nil {
@@ -180,8 +184,8 @@ func (p *Infrastructure) Deploy(ctx context.Context, values *types.Values, metad
 			{Purpose: linodego.InterfacePurposePublic}}
 	}
 
-	if p.AuthorizedKeys != "" {
-		createOptions.AuthorizedKeys = []string{p.AuthorizedKeys}
+	if len(p.AuthorizedKeys) > 0 {
+		createOptions.AuthorizedKeys = p.AuthorizedKeys
 	}
 
 	// Create a Linode Instance

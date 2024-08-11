@@ -14,10 +14,11 @@ import (
 	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
 	v1 "k8s.io/client-go/tools/clientcmd/api/v1"
 	k8syaml "sigs.k8s.io/yaml"
 
+	"capi-bootstrap/types"
 	capiYaml "capi-bootstrap/yaml"
 )
 
@@ -169,6 +170,10 @@ func (b *Backend) uploadFile(ctx context.Context, fileContent string, filePath s
 	return err
 }
 
+func (b *Backend) ListClusters(_ context.Context) ([]types.ClusterInfo, error) {
+	return nil, errors.New("[s3 backend] ListClusters not implemented")
+}
+
 func (b *Backend) WriteFiles(ctx context.Context, clusterName string, cloudInitConfig *capiYaml.Config) ([]string, error) {
 	downloadCmds := make([]string, len(cloudInitConfig.WriteFiles))
 	newFiles := make([]capiYaml.InitFile, len(cloudInitConfig.WriteFiles))
@@ -193,13 +198,13 @@ func (b *Backend) Delete(ctx context.Context, clusterName string) error {
 	if err != nil {
 		return fmt.Errorf("couldn't list objects: %v", err)
 	}
-	objectsToDelete := make([]types.ObjectIdentifier, *objects.KeyCount)
+	objectsToDelete := make([]s3types.ObjectIdentifier, *objects.KeyCount)
 	for i, object := range objects.Contents {
-		objectsToDelete[i] = types.ObjectIdentifier{Key: object.Key}
+		objectsToDelete[i] = s3types.ObjectIdentifier{Key: object.Key}
 	}
 	_, err = b.Client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
 		Bucket: &b.BucketName,
-		Delete: &types.Delete{
+		Delete: &s3types.Delete{
 			Objects: objectsToDelete,
 		},
 	})

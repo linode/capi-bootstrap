@@ -1,35 +1,56 @@
 package cmd
 
 import (
+	"os"
+	"text/tabwriter"
+
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
+
+	"capi-bootstrap/providers/backend"
+	"capi-bootstrap/utils"
 )
 
 // listCmd represents the list command.
 var listCmd = &cobra.Command{
 	Use:   "list",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		klog.Info("list called")
+	Short: "list clusters",
+	Long:  `list clusters and nodes using config stored in a backend provider`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if len(args) < 1 {
+			args = []string{"main"}
+			klog.Warningf("a branch name was not supplied via args, defaulting to main")
+		}
+		err := runListCluster(cmd, args[0])
+		if err != nil {
+			return err
+		}
+		return nil
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(listCmd)
+}
 
-	// Here you will define your flags and configuration settings.
+func runListCluster(cmd *cobra.Command, branchName string) error {
+	ctx := cmd.Context()
 
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// listCmd.PersistentFlags().String("foo", "", "A help for foo")
+	backendProvider := backend.NewProvider(clusterOpts.backend)
+	if err := backendProvider.PreCmd(ctx, branchName); err != nil {
+		return err
+	}
 
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// listCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	clusters, err := backendProvider.ListClusters(ctx)
+	if err != nil {
+		return err
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 8, 1, '\t', 0)
+
+	err = utils.TabWriteClusters(w, clusters)
+	if err != nil {
+		return err
+	}
+	return w.Flush()
 }
