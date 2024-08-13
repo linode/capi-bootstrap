@@ -3,6 +3,7 @@ package cloudinit
 import (
 	"archive/tar"
 	"bytes"
+	"capi-bootstrap/providers/backend"
 	"capi-bootstrap/providers/controlplane"
 	"capi-bootstrap/providers/infrastructure"
 	"capi-bootstrap/types"
@@ -24,7 +25,7 @@ import (
 //go:embed files
 var files embed.FS
 
-func GenerateCloudInit(ctx context.Context, values *types.Values, infra infrastructure.Provider, controlPlane controlplane.Provider, tarWriteFiles bool) ([]byte, error) {
+func GenerateCloudInit(ctx context.Context, values *types.Values, infra infrastructure.Provider, controlPlane controlplane.Provider, backend backend.Provider) ([]byte, error) {
 	debugCmds := []string{"curl -s -L https://github.com/derailed/k9s/releases/download/v0.32.4/k9s_Linux_amd64.tar.gz | tar -xvz -C /usr/local/bin k9s",
 		`echo "alias k=\"k3s kubectl\"" >> /root/.bashrc`,
 		"echo \"export KUBECONFIG=/etc/rancher/k3s/k3s.yaml\" >> /root/.bashrc"}
@@ -74,7 +75,7 @@ func GenerateCloudInit(ctx context.Context, values *types.Values, infra infrastr
 	if err != nil {
 		return nil, err
 	}
-	controlPlaneCertFiles, err := controlPlane.GetControlPlaneCertFiles(ctx, values)
+	controlPlaneCertFiles, err := controlPlane.GetControlPlaneCertFiles(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -108,6 +109,7 @@ func GenerateCloudInit(ctx context.Context, values *types.Values, infra infrastr
 	writeFiles = append(writeFiles, additionalControlPlaneFiles...)
 	writeFiles = append(writeFiles, controlPlaneCertFiles...)
 	writeFiles = append(writeFiles, capiManifests.AdditionalFiles...)
+	tarWriteFiles := false
 	if tarWriteFiles {
 		fileReader, err := createTar(writeFiles)
 		if err != nil {
@@ -130,7 +132,11 @@ func GenerateCloudInit(ctx context.Context, values *types.Values, infra infrastr
 		WriteFiles: writeFiles,
 		RunCmd:     runCmds,
 	}
-
+	downloadCmds, err := backend.WriteFiles(ctx, values.ClusterName, &cloudConfig)
+	if err != nil {
+		return nil, err
+	}
+	cloudConfig.RunCmd = append(downloadCmds, cloudConfig.RunCmd...)
 	rawCloudConfig, err := yaml.Marshal(cloudConfig)
 	if err != nil {
 		return nil, err

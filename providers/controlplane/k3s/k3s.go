@@ -16,6 +16,7 @@ import (
 	"github.com/k3s-io/cluster-api-k3s/pkg/kubeconfig"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clientv1 "k8s.io/client-go/tools/clientcmd/api/v1"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/cluster-api/util/certs"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,9 +32,9 @@ import (
 )
 
 type ControlPlane struct {
-	Name         string
-	ServerConfig v1beta1.KThreesServerConfig
-	AgentConfig  v1beta1.KThreesAgentConfig
+	Name   string
+	Config v1beta1.KThreesConfigSpec
+	Certs  secrets.Certificates
 }
 
 func NewControlPlane() *ControlPlane {
@@ -61,23 +62,25 @@ func (p *ControlPlane) GenerateAdditionalFiles(_ context.Context, values *types.
 	}, nil
 }
 
-func (p *ControlPlane) PreDeploy(_ context.Context, values *types.Values) error {
+func (p *ControlPlane) PreDeploy(ctx context.Context, values *types.Values) error {
 	// parse the controlPlane from the manifests
 	controlPlaneSpec := GetControlPlaneDef(values.Manifests)
 	if controlPlaneSpec == nil {
 		return errors.New("control plane not found")
 	}
 
-	p.ServerConfig = controlPlaneSpec.Spec.KThreesConfigSpec.ServerConfig
-	p.AgentConfig = controlPlaneSpec.Spec.KThreesConfigSpec.AgentConfig
+	p.Config = v1beta1.KThreesConfigSpec{
+		ServerConfig: controlPlaneSpec.Spec.KThreesConfigSpec.ServerConfig,
+		AgentConfig:  controlPlaneSpec.Spec.KThreesConfigSpec.AgentConfig,
+	}
 
 	// set the k8s version as parsed from the ControlPlane
 	values.K8sVersion = controlPlaneSpec.Spec.Version
 	klog.Infof("k8s version : %s", controlPlaneSpec.Spec.Version)
 
 	// generate certificates
-	values.K3s.Certs = secrets.NewCertificatesForInitialControlPlane(&values.K3s.Config)
-	for _, cert := range values.K3s.Certs {
+	p.Certs = secrets.NewCertificatesForInitialControlPlane(&p.Config)
+	for _, cert := range p.Certs {
 		err := cert.Generate()
 		if err != nil {
 			return err
@@ -87,7 +90,7 @@ func (p *ControlPlane) PreDeploy(_ context.Context, values *types.Values) error 
 	var clientCACert, serverCACert *x509.Certificate
 	var clientCAKey crypto.Signer
 	var err error
-	for _, cert := range values.K3s.Certs {
+	for _, cert := range p.Certs {
 		switch cert.Purpose {
 		case secrets.ClusterCA:
 			serverCACert, err = certs.DecodeCertPEM(cert.KeyPair.Cert)
@@ -105,9 +108,14 @@ func (p *ControlPlane) PreDeploy(_ context.Context, values *types.Values) error 
 			}
 		}
 	}
-	values.Kubeconfig, err = kubeconfig.New(values.ClusterName, values.ClusterEndpoint, clientCACert, clientCAKey, serverCACert)
+	newKubeconfig, err := kubeconfig.New(values.ClusterName, fmt.Sprintf("https://%s:%d", values.ClusterEndpoint, 6443), clientCACert, clientCAKey, serverCACert)
 	if err != nil {
 		return errors.Join(errors.New("failed to generate kubeconfig"), err)
+	}
+	values.Kubeconfig = &clientv1.Config{}
+	err = clientv1.Convert_api_Config_To_v1_Config(newKubeconfig, values.Kubeconfig, nil)
+	if err != nil {
+		return errors.Join(errors.New("failed to convert kubeconfig to v1"), err)
 	}
 	// set the BootstrapManifestDir
 	values.BootstrapManifestDir = "/var/lib/rancher/k3s/server/manifests/"
@@ -192,24 +200,52 @@ func (p *ControlPlane) UpdateManifests(_ context.Context, manifests []string, va
 	return &controlPlaneManifests, nil
 }
 
-func (K3s) GetControlPlaneCertSecret(ctx context.Context, values providers.Values) (*capiYaml.InitFile, error) {
-	if values.K3s.Certs == nil {
+func (p *ControlPlane) GetControlPlaneCertSecret(ctx context.Context, values *types.Values) (*capiYaml.InitFile, error) {
+	if p.Certs == nil {
 		return nil, errors.New("missing control plane certs")
 	}
-	var certSecrets v1.SecretList
-	for _, cert := range values.K3s.Certs {
+	certSecrets := v1.SecretList{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "List",
+			APIVersion: "v1",
+		},
+	}
+	for _, cert := range p.Certs {
 		certSecret := cert.AsSecret(client.ObjectKey{
-			Namespace: "default",
+			Namespace: values.Namespace,
 			Name:      values.ClusterName,
 		}, metav1.OwnerReference{})
+		certSecret.TypeMeta = metav1.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: "v1",
+		}
+		certSecret.OwnerReferences = nil
 		certSecrets.Items = append(certSecrets.Items, *certSecret)
 	}
+	tokenSecret := v1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secrets.Name(values.ClusterName, "token"),
+			Namespace: values.Namespace,
+			Labels: map[string]string{
+				clusterv1.ClusterNameLabel: values.ClusterName,
+			},
+		},
+		Data: map[string][]byte{
+			"value": []byte(values.BootstrapToken),
+		},
+		Type: clusterv1.ClusterSecretType,
+	}
+	certSecrets.Items = append(certSecrets.Items, tokenSecret)
 	secretString, err := yaml.Marshal(certSecrets)
 	if err != nil {
 		return nil, err
 	}
 	secretFile := capiYaml.InitFile{
-		Path:    path.Join(values.BootstrapManifestDir + "ca-secrets.yaml"),
+		Path:    path.Join(values.BootstrapManifestDir + "cp-secrets.yaml"),
 		Content: string(secretString),
 	}
 
@@ -217,11 +253,11 @@ func (K3s) GetControlPlaneCertSecret(ctx context.Context, values providers.Value
 
 }
 
-func (K3s) GetControlPlaneCertFiles(ctx context.Context, values providers.Values) ([]capiYaml.InitFile, error) {
-	if values.K3s.Certs == nil {
+func (p *ControlPlane) GetControlPlaneCertFiles(ctx context.Context) ([]capiYaml.InitFile, error) {
+	if p.Certs == nil {
 		return nil, errors.New("missing control plane certs")
 	}
-	k3sFiles := values.K3s.Certs.AsFiles()
+	k3sFiles := p.Certs.AsFiles()
 	yamlFiles := make([]capiYaml.InitFile, len(k3sFiles))
 	for i, file := range k3sFiles {
 		yamlFiles[i] = capiYaml.InitFile{
@@ -235,8 +271,8 @@ func (K3s) GetControlPlaneCertFiles(ctx context.Context, values providers.Values
 	return yamlFiles, nil
 }
 
-func (K3s) GetKubeconfig(ctx context.Context, values providers.Values) (*capiYaml.InitFile, error) {
-	if values.K3s.Certs == nil {
+func (p *ControlPlane) GetKubeconfig(ctx context.Context, values *types.Values) (*capiYaml.InitFile, error) {
+	if p.Certs == nil {
 		return nil, errors.New("missing control plane certs")
 	}
 
@@ -245,9 +281,13 @@ func (K3s) GetKubeconfig(ctx context.Context, values providers.Values) (*capiYam
 		return nil, err
 	}
 	kubeconfigSecret := &v1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: "v1",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secrets.Name(values.ClusterName, secrets.Kubeconfig),
-			Namespace: "default",
+			Namespace: values.Namespace,
 			Labels: map[string]string{
 				clusterv1.ClusterNameLabel: values.ClusterName,
 			},

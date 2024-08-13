@@ -2,6 +2,7 @@ package cmd
 
 import (
 	Linode "capi-bootstrap/providers/infrastructure/linode"
+	"capi-bootstrap/yaml"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -12,6 +13,8 @@ import (
 	"strings"
 
 	"k8s.io/klog/v2"
+
+	"capi-bootstrap/providers/backend"
 
 	"github.com/helloyi/go-sshclient"
 	"github.com/linode/linodego"
@@ -51,45 +54,65 @@ func init() {
 		"password to use with the ssh connection")
 	kubeconfigCmd.Flags().IntP("port", "", 22,
 		"port to use with the ssh connection")
+	kubeconfigCmd.Flags().StringP("backend", "b", "",
+		"backend to use for retrieving the kubeconfig")
 	getCmd.AddCommand(kubeconfigCmd)
 }
 
 func runGetKubeconfig(cmd *cobra.Command, clusterName string) error {
-	var kconf string
+	kconf := []byte{}
 	var err error
 	if cmd.Flags().Changed("ssh") {
 		kconf, err = getKubeconfigDirect(cmd, clusterName)
 	}
-
 	if err != nil {
 		return err
 	}
+	if cmd.Flags().Changed("backend") {
+		backendName, err := cmd.Flags().GetString("backend")
+		if err != nil {
+			return err
+		}
+		backendProvider := backend.NewProvider(backendName)
+		if err := backendProvider.PreCmd(cmd.Context(), clusterName); err != nil {
+			return err
+		}
 
-	fmt.Println(kconf)
+		config, err := backendProvider.Read(cmd.Context(), clusterName)
+		if err != nil {
+			return err
+		}
+		kconf, err = yaml.Marshal(config)
+		if err != nil {
+			return err
+		}
+
+	}
+	fmt.Println(string(kconf))
 	return nil
 }
 
-func getKubeconfigDirect(cmd *cobra.Command, clusterName string) (string, error) {
+func getKubeconfigDirect(cmd *cobra.Command, clusterName string) ([]byte, error) {
 	linodeToken := os.Getenv("LINODE_TOKEN")
 
 	if linodeToken == "" {
-		return "", errors.New("linode_token is required")
+		return nil, errors.New("linode_token is required")
 	}
 
 	linClient := Linode.NewClient(linodeToken, cmd.Context())
 	instanceListFilter, err := json.Marshal(map[string]string{"tags": clusterName})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	instances, err := linClient.ListInstances(cmd.Context(), ptr.To(linodego.ListOptions{
 		Filter: string(instanceListFilter),
 	}))
 	if err != nil {
-		return "", fmt.Errorf("Could not list instances: %v", err)
+		return nil, fmt.Errorf("Could not list instances: %v", err)
 	}
 
 	if len(instances) == 0 {
-		return "", fmt.Errorf("Could not find a Linode instance with tag %s", clusterName)
+		return nil, fmt.Errorf("Could not find a Linode instance with tag %s", clusterName)
 	}
 
 	var serverIP string
@@ -101,29 +124,29 @@ func getKubeconfigDirect(cmd *cobra.Command, clusterName string) (string, error)
 
 	port, err := cmd.Flags().GetInt("port")
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	server := fmt.Sprintf("%s:%d", serverIP, port)
 
 	idfile, err := cmd.Flags().GetString("identity-file")
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	idfile, err = homedir(idfile)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	username, err := cmd.Flags().GetString("username")
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	password, err := cmd.Flags().GetString("password")
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	// build an ssh client with the right connection params
@@ -145,13 +168,13 @@ func getKubeconfigDirect(cmd *cobra.Command, clusterName string) (string, error)
 		// no args changed, default to root with ~/.ssh/id_rsa
 		idfile, err = homedir(filepath.Join("~", ".ssh", "id_rsa"))
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 
 		klog.Infof("Connecting by SSH to %s using identify file %s and username %s", server, idfile, username)
 		sClient, err = sshclient.DialWithKey(server, username, idfile)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 	} else if cmd.Flags().Changed("identity-file") {
 		// a key was passed, need to decide if we need to dial with a password
@@ -159,13 +182,13 @@ func getKubeconfigDirect(cmd *cobra.Command, clusterName string) (string, error)
 			klog.Infof("Connecting by SSH to %s using identify file %s with username %s and a password", server, idfile, username)
 			sClient, err = sshclient.DialWithKeyWithPassphrase(server, username, idfile, password)
 			if err != nil {
-				return "", err
+				return nil, err
 			}
 		} else {
 			klog.Infof("Connecting by SSH to %s using identify file %s and username %s", server, idfile, username)
 			sClient, err = sshclient.DialWithKey(server, username, idfile)
 			if err != nil {
-				return "", err
+				return nil, err
 			}
 		}
 	} else if cmd.Flags().Changed("password") {
@@ -173,7 +196,7 @@ func getKubeconfigDirect(cmd *cobra.Command, clusterName string) (string, error)
 		klog.Infof("Connecting by SSH to %s using username %s with a password", server, username)
 		sClient, err = sshclient.DialWithPasswd(server, username, password)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 	}
 
@@ -181,17 +204,17 @@ func getKubeconfigDirect(cmd *cobra.Command, clusterName string) (string, error)
 	return getKubeconfigK3s(sClient, clusterName)
 }
 
-func getKubeconfigK3s(session *sshclient.Client, clusterName string) (string, error) {
+func getKubeconfigK3s(session *sshclient.Client, clusterName string) ([]byte, error) {
 	output, err := session.Cmd(fmt.Sprintf("k3s kubectl get secret %s-kubeconfig -ojsonpath='{.data.value}'", clusterName)).Output()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	kubeconfig, err := base64.StdEncoding.DecodeString(string(output))
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return string(kubeconfig), nil
+	return kubeconfig, nil
 }
 
 func homedir(filename string) (string, error) {
