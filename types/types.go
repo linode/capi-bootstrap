@@ -2,6 +2,8 @@ package types
 
 import (
 	"io/fs"
+
+	v1 "k8s.io/client-go/tools/clientcmd/api/v1"
 )
 
 // Values is the struct including information parsed by all providers
@@ -10,6 +12,10 @@ type Values struct {
 	ClusterName string
 	// BootstrapToken will pass a bootstrap token to a controlPlane provider, otherwise one will be generated
 	BootstrapToken string
+	// Namespace for resources to be installed into
+	Namespace string
+	// The generated Kubeconfig for a bootstrapped cluster
+	Kubeconfig *v1.Config
 	// K8sVersion is the version parsed from the providers.ControlPlane
 	K8sVersion string
 	// ClusterKind is the Kind of infrastructure.cluster.x-k8s.io used for this cluster

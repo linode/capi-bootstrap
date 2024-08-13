@@ -1,8 +1,5 @@
 #!/bin/bash
 sed -i "s/127.0.0.1/[[[ .ClusterEndpoint ]]]/" /etc/rancher/k3s/k3s.yaml
-k3s kubectl create secret generic [[[ .ClusterName ]]]-token --type=cluster.x-k8s.io/secret --from-file=value=/var/lib/rancher/k3s/server/token --dry-run=client -oyaml > /var/lib/rancher/k3s/server/manifests/cluster-token.yaml
-until k3s kubectl get secret [[[ .ClusterName ]]]-token; do sleep 5; done
-k3s kubectl label secret [[[ .ClusterName ]]]-token "cluster.x-k8s.io/cluster-name"="[[[ .ClusterName ]]]"
 until k3s kubectl get -f /var/lib/rancher/k3s/server/manifests/capi-manifests.yaml; do sleep 10; done
 rm /var/lib/rancher/k3s/server/manifests/capi-manifests.yaml
 k3s kubectl patch machine [[[ .ClusterName ]]]-bootstrap --type=json -p "[{\"op\": \"add\", \"path\": \"/metadata/ownerReferences\", \"value\" : [{\"apiVersion\":\"controlplane.cluster.x-k8s.io/v1beta1\",\"blockOwnerDeletion\":true,\"controller\":true,\"kind\":\"KThreesControlPlane\",\"name\":\"[[[ .ClusterName ]]]-control-plane\",\"uid\":\"$(k3s kubectl get KThreesControlPlane [[[ .ClusterName ]]]-control-plane -ojsonpath='{.metadata.uid}')\"}]}]"

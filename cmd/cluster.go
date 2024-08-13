@@ -12,8 +12,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	v1 "k8s.io/client-go/tools/clientcmd/api/v1"
-
 	"capi-bootstrap/cloudinit"
 	capiYaml "capi-bootstrap/yaml"
 
@@ -108,6 +106,7 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 	if clusterSpec == nil {
 		return errors.New("cluster not found")
 	}
+	values.Namespace = clusterSpec.Namespace
 
 	infrastructureProvider := infrastructure.NewProvider(clusterSpec.Spec.InfrastructureRef.Kind)
 	if infrastructureProvider == nil {
@@ -130,19 +129,10 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 		return errors.New("cluster state already exists in backend, delete before trying again")
 	}
 
-	clusterState, err := state.NewState(&v1.Config{})
-	if err != nil {
-		return nil
-	}
-
 	if values.ClusterName == "" {
 		return errors.New("cluster name is empty")
 	}
 	klog.Infof("cluster name: %s", values.ClusterName)
-
-	if err := controlPlaneProvider.PreDeploy(ctx, values); err != nil {
-		return err
-	}
 
 	if err := infrastructureProvider.PreCmd(ctx, values); err != nil {
 		return err
@@ -152,7 +142,16 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	cloudConfig, err := cloudinit.GenerateCloudInit(ctx, values, infrastructureProvider, controlPlaneProvider, true)
+	if err := controlPlaneProvider.PreDeploy(ctx, values); err != nil {
+		return err
+	}
+
+	clusterState, err := state.NewState(values.Kubeconfig)
+	if err != nil {
+		return nil
+	}
+
+	cloudConfig, err := cloudinit.GenerateCloudInit(ctx, values, infrastructureProvider, controlPlaneProvider, backendProvider)
 	if err != nil {
 		return err
 	}
@@ -175,5 +174,5 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	return backendProvider.Write(ctx, values.ClusterName, c)
+	return backendProvider.WriteConfig(ctx, values.ClusterName, c)
 }

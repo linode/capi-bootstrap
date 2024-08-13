@@ -102,22 +102,22 @@ func (mr *MockProviderMockRecorder) GenerateRunCommand(ctx, values any) *gomock.
 }
 
 // GetControlPlaneCertFiles mocks base method.
-func (m *MockProvider) GetControlPlaneCertFiles(ctx context.Context, values providers.Values) ([]yaml.InitFile, error) {
+func (m *MockProvider) GetControlPlaneCertFiles(ctx context.Context) ([]yaml.InitFile, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetControlPlaneCertFiles", ctx, values)
+	ret := m.ctrl.Call(m, "GetControlPlaneCertFiles", ctx)
 	ret0, _ := ret[0].([]yaml.InitFile)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetControlPlaneCertFiles indicates an expected call of GetControlPlaneCertFiles.
-func (mr *MockProviderMockRecorder) GetControlPlaneCertFiles(ctx, values any) *gomock.Call {
+func (mr *MockProviderMockRecorder) GetControlPlaneCertFiles(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetControlPlaneCertFiles", reflect.TypeOf((*MockProvider)(nil).GetControlPlaneCertFiles), ctx, values)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetControlPlaneCertFiles", reflect.TypeOf((*MockProvider)(nil).GetControlPlaneCertFiles), ctx)
 }
 
 // GetControlPlaneCertSecret mocks base method.
-func (m *MockProvider) GetControlPlaneCertSecret(ctx context.Context, values providers.Values) (*yaml.InitFile, error) {
+func (m *MockProvider) GetControlPlaneCertSecret(ctx context.Context, values *types.Values) (*yaml.InitFile, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetControlPlaneCertSecret", ctx, values)
 	ret0, _ := ret[0].(*yaml.InitFile)
@@ -132,7 +132,7 @@ func (mr *MockProviderMockRecorder) GetControlPlaneCertSecret(ctx, values any) *
 }
 
 // GetKubeconfig mocks base method.
-func (m *MockProvider) GetKubeconfig(ctx context.Context, values providers.Values) (*yaml.InitFile, error) {
+func (m *MockProvider) GetKubeconfig(ctx context.Context, values *types.Values) (*yaml.InitFile, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetKubeconfig", ctx, values)
 	ret0, _ := ret[0].(*yaml.InitFile)

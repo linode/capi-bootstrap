@@ -108,8 +108,10 @@ token: test-token
 			t.Parallel()
 			ctx := context.Background()
 			controlPlane := &ControlPlane{
-				ServerConfig: v1beta1.KThreesServerConfig{},
-				AgentConfig:  v1beta1.KThreesAgentConfig{},
+				Config: v1beta1.KThreesConfigSpec{
+					ServerConfig: v1beta1.KThreesServerConfig{},
+					AgentConfig:  v1beta1.KThreesAgentConfig{},
+				},
 			}
 			actual, _ := controlPlane.GenerateAdditionalFiles(ctx, &tc.input)
 			assert.NotNil(t, tc.input.BootstrapToken)
@@ -177,8 +179,10 @@ spec:
 			t.Parallel()
 			ctx := context.Background()
 			controlPlane := &ControlPlane{
-				ServerConfig: v1beta1.KThreesServerConfig{DisableComponents: []string{"servicelb", "traefik"}},
-				AgentConfig:  v1beta1.KThreesAgentConfig{NodeName: "{{ ds.meta_data.label }}"},
+				Config: v1beta1.KThreesConfigSpec{
+					ServerConfig: v1beta1.KThreesServerConfig{DisableComponents: []string{"servicelb", "traefik"}},
+					AgentConfig:  v1beta1.KThreesAgentConfig{NodeName: "{{ ds.meta_data.label }}"},
+				},
 			}
 			err := controlPlane.PreDeploy(ctx, &tc.input)
 			if tc.wantErr != "" {
@@ -225,13 +229,6 @@ func TestK3s_GenerateInitScript(t *testing.T) {
 		Path: "/tmp/initScript.sh",
 		Content: `#!/bin/bash
 sed -i "s/127.0.0.1/api-server.test.com/" /etc/rancher/k3s/k3s.yaml
-k3s kubectl create secret generic test-cluster-kubeconfig --type=cluster.x-k8s.io/secret --from-file=value=/etc/rancher/k3s/k3s.yaml --dry-run=client -oyaml > /var/lib/rancher/k3s/server/manifests/cluster-kubeconfig.yaml
-k3s kubectl create secret generic test-cluster-ca --type=cluster.x-k8s.io/secret --from-file=tls.crt=/var/lib/rancher/k3s/server/tls/server-ca.crt --from-file=tls.key=/var/lib/rancher/k3s/server/tls/server-ca.key --dry-run=client -oyaml > /var/lib/rancher/k3s/server/manifests/cluster-ca.yaml
-k3s kubectl create secret generic test-cluster-cca --type=cluster.x-k8s.io/secret --from-file=tls.crt=/var/lib/rancher/k3s/server/tls/client-ca.crt --from-file=tls.key=/var/lib/rancher/k3s/server/tls/client-ca.key --dry-run=client -oyaml > /var/lib/rancher/k3s/server/manifests/cluster-cca.yaml
-k3s kubectl create secret generic test-cluster-etcd --type=cluster.x-k8s.io/secret --from-file=tls.crt=/var/lib/rancher/k3s/server/tls/etcd/server-ca.crt --from-file=tls.key=/var/lib/rancher/k3s/server/tls/etcd/server-ca.key --dry-run=client -oyaml > /var/lib/rancher/k3s/server/manifests/cluster-etcd.yaml
-k3s kubectl create secret generic test-cluster-token --type=cluster.x-k8s.io/secret --from-file=value=/var/lib/rancher/k3s/server/token --dry-run=client -oyaml > /var/lib/rancher/k3s/server/manifests/cluster-token.yaml
-until k3s kubectl get secret test-cluster-ca test-cluster-cca test-cluster-kubeconfig test-cluster-etcd test-cluster-token; do sleep 5; done
-k3s kubectl label secret test-cluster-kubeconfig test-cluster-ca test-cluster-cca test-cluster-etcd test-cluster-token "cluster.x-k8s.io/cluster-name"="test-cluster"
 until k3s kubectl get -f /var/lib/rancher/k3s/server/manifests/capi-manifests.yaml; do sleep 10; done
 rm /var/lib/rancher/k3s/server/manifests/capi-manifests.yaml
 k3s kubectl patch machine test-cluster-bootstrap --type=json -p "[{\"op\": \"add\", \"path\": \"/metadata/ownerReferences\", \"value\" : [{\"apiVersion\":\"controlplane.cluster.x-k8s.io/v1beta1\",\"blockOwnerDeletion\":true,\"controller\":true,\"kind\":\"KThreesControlPlane\",\"name\":\"test-cluster-control-plane\",\"uid\":\"$(k3s kubectl get KThreesControlPlane test-cluster-control-plane -ojsonpath='{.metadata.uid}')\"}]}]"
@@ -346,11 +343,10 @@ spec:
 func TestK3s_GetControlPlaneCertSecret(t *testing.T) {
 	type test struct {
 		name  string
-		input providers.Values
-		want  string
+		input types.Values
 	}
 	tests := []test{
-		{name: "success", input: providers.Values{
+		{name: "success", input: types.Values{
 			ClusterName: "test-cluster", ClusterEndpoint: "api-server.test.com",
 			Manifests: []string{`---
 apiVersion: controlplane.cluster.x-k8s.io/v1beta1
@@ -378,17 +374,17 @@ spec:
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			ctx := context.Background()
-			controlPlane := K3s{}
+			controlPlane := ControlPlane{}
 			err := controlPlane.PreDeploy(ctx, &tc.input)
 			assert.NoError(t, err)
-			assert.NotNil(t, tc.input.K3s.Certs)
-			for _, cert := range tc.input.K3s.Certs {
+			assert.NotNil(t, controlPlane.Certs)
+			for _, cert := range controlPlane.Certs {
 				assert.NotNil(t, cert.KeyPair)
 
 			}
-			secretFile, err := controlPlane.GetControlPlaneCertSecret(ctx, tc.input)
+			secretFile, err := controlPlane.GetControlPlaneCertSecret(ctx, &tc.input)
 			assert.NoError(t, err)
-			assert.Equal(t, secretFile.Path, "/var/lib/rancher/k3s/server/manifests/ca-secrets.yaml")
+			assert.Equal(t, secretFile.Path, "/var/lib/rancher/k3s/server/manifests/cp-secrets.yaml")
 			assert.NotNil(t, secretFile.Content)
 
 		})
@@ -398,11 +394,10 @@ spec:
 func TestK3s_GetControlPlaneCertFiles(t *testing.T) {
 	type test struct {
 		name  string
-		input providers.Values
-		want  string
+		input types.Values
 	}
 	tests := []test{
-		{name: "success", input: providers.Values{
+		{name: "success", input: types.Values{
 			ClusterName: "test-cluster", ClusterEndpoint: "api-server.test.com",
 			Manifests: []string{`---
 apiVersion: controlplane.cluster.x-k8s.io/v1beta1
@@ -430,17 +425,17 @@ spec:
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			ctx := context.Background()
-			controlPlane := K3s{}
+			controlPlane := ControlPlane{}
 			err := controlPlane.PreDeploy(ctx, &tc.input)
 			assert.NoError(t, err)
-			assert.NotNil(t, tc.input.K3s.Certs)
-			for _, cert := range tc.input.K3s.Certs {
+			assert.NotNil(t, controlPlane.Certs)
+			for _, cert := range controlPlane.Certs {
 				assert.NotNil(t, cert.KeyPair)
 
 			}
-			secretFiles, err := controlPlane.GetControlPlaneCertFiles(ctx, tc.input)
+			secretFiles, err := controlPlane.GetControlPlaneCertFiles(ctx)
 			assert.NoError(t, err)
-			assert.Equal(t, len(tc.input.K3s.Certs)*2, len(secretFiles))
+			assert.Equal(t, len(controlPlane.Certs)*2, len(secretFiles))
 			for _, secretFile := range secretFiles {
 				assert.NotNil(t, secretFile.Path)
 				assert.NotNil(t, secretFile.Content)
@@ -453,11 +448,10 @@ spec:
 func TestK3s_GetKubeconfig(t *testing.T) {
 	type test struct {
 		name  string
-		input providers.Values
-		want  string
+		input types.Values
 	}
 	tests := []test{
-		{name: "success", input: providers.Values{
+		{name: "success", input: types.Values{
 			ClusterName: "test-cluster", ClusterEndpoint: "api-server.test.com",
 			Manifests: []string{`---
 apiVersion: controlplane.cluster.x-k8s.io/v1beta1
@@ -485,15 +479,15 @@ spec:
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			ctx := context.Background()
-			controlPlane := K3s{}
+			controlPlane := ControlPlane{}
 			err := controlPlane.PreDeploy(ctx, &tc.input)
 			assert.NoError(t, err)
-			assert.NotNil(t, tc.input.K3s.Certs)
-			for _, cert := range tc.input.K3s.Certs {
+			assert.NotNil(t, controlPlane.Certs)
+			for _, cert := range controlPlane.Certs {
 				assert.NotNil(t, cert.KeyPair)
 
 			}
-			kubeconfig, err := controlPlane.GetKubeconfig(ctx, tc.input)
+			kubeconfig, err := controlPlane.GetKubeconfig(ctx, &tc.input)
 			assert.NoError(t, err)
 			assert.NotNil(t, kubeconfig)
 

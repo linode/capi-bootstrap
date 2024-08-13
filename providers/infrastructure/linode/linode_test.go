@@ -264,7 +264,7 @@ func TestCAPL_PreDeploy(t *testing.T) {
 		input      types.Values
 		want       types.Values
 		wantErr    string
-		mockClient func(ctx context.Context, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient
+		mockClient func(ctx context.Context, t *testing.T, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient
 	}
 	manifests := []string{`---
 apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
@@ -299,7 +299,7 @@ spec:
 		{
 			name:  "success",
 			input: types.Values{ClusterName: "test-cluster", Manifests: manifests, BootstrapManifestDir: "/test-manifests/"},
-			mockClient: func(ctx context.Context, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient {
+			mockClient: func(ctx context.Context, t *testing.T, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient {
 				mock.EXPECT().
 					ListNodeBalancers(ctx, linodego.NewListOptions(1, `{"tags":"test-cluster"}`)).
 					Return([]linodego.NodeBalancer{}, nil)
@@ -327,7 +327,7 @@ spec:
 		{
 			name:  "err machine not found",
 			input: types.Values{ClusterName: "test-cluster", BootstrapManifestDir: "/test-manifests/"},
-			mockClient: func(ctx context.Context, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient {
+			mockClient: func(ctx context.Context, t *testing.T, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient {
 				return mock
 			},
 			wantErr: "machine not found",
@@ -335,7 +335,7 @@ spec:
 		{
 			name:  "err list NodeBalancer",
 			input: types.Values{ClusterName: "test-cluster", Manifests: manifests, BootstrapManifestDir: "/test-manifests/"},
-			mockClient: func(ctx context.Context, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient {
+			mockClient: func(ctx context.Context, t *testing.T, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient {
 				mock.EXPECT().
 					ListNodeBalancers(ctx, linodego.NewListOptions(1, `{"tags":"test-cluster"}`)).
 					Return(nil, errors.New("could not connect to linode"))
@@ -346,7 +346,7 @@ spec:
 		{
 			name:  "err existing NodeBalancer",
 			input: types.Values{ClusterName: "test-cluster", Manifests: manifests, BootstrapManifestDir: "/test-manifests/"},
-			mockClient: func(ctx context.Context, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient {
+			mockClient: func(ctx context.Context, t *testing.T, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient {
 				mock.EXPECT().
 					ListNodeBalancers(ctx, linodego.NewListOptions(1, `{"tags":"test-cluster"}`)).
 					Return([]linodego.NodeBalancer{{ID: 123}}, nil)
@@ -357,7 +357,7 @@ spec:
 		{
 			name:  "err create NodeBalancer",
 			input: types.Values{ClusterName: "test-cluster", Manifests: manifests, BootstrapManifestDir: "/test-manifests/"},
-			mockClient: func(ctx context.Context, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient {
+			mockClient: func(ctx context.Context, t *testing.T, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient {
 				mock.EXPECT().
 					ListNodeBalancers(ctx, linodego.NewListOptions(1, `{"tags":"test-cluster"}`)).
 					Return([]linodego.NodeBalancer{}, nil)
@@ -375,7 +375,7 @@ spec:
 		{
 			name:  "err no ipv4",
 			input: types.Values{ClusterName: "test-cluster", Manifests: manifests, BootstrapManifestDir: "/test-manifests/"},
-			mockClient: func(ctx context.Context, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient {
+			mockClient: func(ctx context.Context, t *testing.T, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient {
 				mock.EXPECT().
 					ListNodeBalancers(ctx, linodego.NewListOptions(1, `{"tags":"test-cluster"}`)).
 					Return([]linodego.NodeBalancer{}, nil)
@@ -408,7 +408,7 @@ spec:
 			assert.NoError(t, err)
 			ctx := context.Background()
 			Infra := Infrastructure{
-				Client:         tc.mockClient(ctx, mock),
+				Client:         tc.mockClient(ctx, t, mock),
 				Token:          "test-token",
 				AuthorizedKeys: "test-key",
 			}
@@ -436,7 +436,7 @@ func TestCAPL_Deploy(t *testing.T) {
 		input      types.Values
 		want       types.Values
 		wantErr    string
-		mockClient func(ctx context.Context, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient
+		mockClient func(ctx context.Context, t *testing.T, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient
 	}
 	tests := []test{
 		{
@@ -445,7 +445,7 @@ func TestCAPL_Deploy(t *testing.T) {
 				ClusterName:          "test-cluster",
 				BootstrapManifestDir: "/test-manifests/",
 			},
-			mockClient: func(ctx context.Context, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient {
+			mockClient: func(ctx context.Context, t *testing.T, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient {
 				mock.EXPECT().
 					CreateVPC(ctx, linodego.VPCCreateOptions{
 						Label:       "test-cluster",
@@ -502,7 +502,7 @@ func TestCAPL_Deploy(t *testing.T) {
 			assert.NoError(t, err)
 			ctx := context.Background()
 			Infra := Infrastructure{
-				Client: tc.mockClient(ctx, mock),
+				Client: tc.mockClient(ctx, t, mock),
 				Machine: &v1alpha1.LinodeMachineTemplate{
 					Spec: v1alpha1.LinodeMachineTemplateSpec{
 						Template: v1alpha1.LinodeMachineTemplateResource{Spec: v1alpha1.LinodeMachineSpec{
@@ -551,7 +551,7 @@ func TestCAPL_Delete(t *testing.T) {
 		force      bool
 		want       types.Values
 		wantErr    string
-		mockClient func(ctx context.Context, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient
+		mockClient func(ctx context.Context, t *testing.T, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient
 	}
 
 	tests := []test{
@@ -560,7 +560,7 @@ func TestCAPL_Delete(t *testing.T) {
 			input: types.Values{
 				ClusterName: "test-cluster",
 			},
-			mockClient: func(ctx context.Context, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient {
+			mockClient: func(ctx context.Context, t *testing.T, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient {
 				mock.EXPECT().
 					ListInstances(ctx, gomock.Cond(func(x any) bool {
 						assert.Equal(t, x.(*linodego.ListOptions).Filter, `{"tags":"test-cluster"}`)
@@ -600,7 +600,7 @@ func TestCAPL_Delete(t *testing.T) {
 			input: types.Values{
 				ClusterName: "test-cluster",
 			},
-			mockClient: func(ctx context.Context, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient {
+			mockClient: func(ctx context.Context, t *testing.T, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient {
 				mock.EXPECT().
 					ListInstances(ctx, gomock.Any()).
 					Return(nil, errors.New("could not connect to linode"))
@@ -614,7 +614,7 @@ func TestCAPL_Delete(t *testing.T) {
 			input: types.Values{
 				ClusterName: "test-cluster",
 			},
-			mockClient: func(ctx context.Context, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient {
+			mockClient: func(ctx context.Context, t *testing.T, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient {
 				mock.EXPECT().
 					ListInstances(ctx, gomock.Any()).
 					Return([]linodego.Instance{{ID: 123}}, nil)
@@ -631,7 +631,7 @@ func TestCAPL_Delete(t *testing.T) {
 			input: types.Values{
 				ClusterName: "test-cluster",
 			},
-			mockClient: func(ctx context.Context, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient {
+			mockClient: func(ctx context.Context, t *testing.T, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient {
 				mock.EXPECT().
 					ListInstances(ctx, gomock.Any()).
 					Return([]linodego.Instance{{ID: 123}}, nil)
@@ -651,7 +651,7 @@ func TestCAPL_Delete(t *testing.T) {
 			input: types.Values{
 				ClusterName: "test-cluster",
 			},
-			mockClient: func(ctx context.Context, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient {
+			mockClient: func(ctx context.Context, t *testing.T, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient {
 				mock.EXPECT().
 					ListInstances(ctx, gomock.Any()).
 					Return([]linodego.Instance{{ID: 123, Label: "test-cluster-bootstrap"}}, nil)
@@ -674,7 +674,7 @@ func TestCAPL_Delete(t *testing.T) {
 			input: types.Values{
 				ClusterName: "test-cluster",
 			},
-			mockClient: func(ctx context.Context, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient {
+			mockClient: func(ctx context.Context, t *testing.T, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient {
 				mock.EXPECT().
 					ListInstances(ctx, gomock.Any()).
 					Return([]linodego.Instance{{ID: 123}}, nil)
@@ -700,7 +700,7 @@ func TestCAPL_Delete(t *testing.T) {
 			input: types.Values{
 				ClusterName: "test-cluster",
 			},
-			mockClient: func(ctx context.Context, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient {
+			mockClient: func(ctx context.Context, t *testing.T, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient {
 				mock.EXPECT().
 					ListInstances(ctx, gomock.Any()).
 					Return([]linodego.Instance{{ID: 123}}, nil)
@@ -735,7 +735,7 @@ func TestCAPL_Delete(t *testing.T) {
 			assert.NoError(t, err)
 			ctx := context.Background()
 			Infra := Infrastructure{
-				Client:         tc.mockClient(ctx, mock),
+				Client:         tc.mockClient(ctx, t, mock),
 				Token:          "test-token",
 				AuthorizedKeys: "test-key",
 			}
