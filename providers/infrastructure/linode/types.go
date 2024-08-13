@@ -1,4 +1,4 @@
-package Linode
+package linode
 
 import (
 	"embed"

@@ -21,6 +21,10 @@ $(LOCALBIN):
 test: generate
 	go test -race -v ./... -coverprofile cover.out
 
+.PHONY: coverage
+coverage: test
+	go tool cover -html cover.out
+
 .PHONY: generate
 generate: mockgen
 	for provider in $(INFRASTRUCTURE_PROVIDERS) ; do \

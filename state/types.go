@@ -117,10 +117,11 @@ func (s *State) UnmarshalJSON(b []byte) error {
 }
 
 func removeExtension(config *v1.Config) {
-	for i, ext := range config.Extensions {
-		if ext.Name == ExtensionName {
-			config.Extensions = append(config.Extensions[:i], config.Extensions[i+1:]...)
-			break
+	newExtesions := []v1.NamedExtension{}
+	for _, ext := range config.Extensions {
+		if ext.Name != ExtensionName {
+			newExtesions = append(newExtesions, ext)
 		}
 	}
+	config.Extensions = newExtesions
 }

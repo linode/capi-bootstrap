@@ -6,8 +6,8 @@
 //	mockgen-v0.4.0 -destination=providers/infrastructure/linode/mock/mock_linode.go -source=providers/infrastructure/linode/linode.go
 //
 
-// Package mock_Linode is a generated GoMock package.
-package mock_Linode
+// Package mock_linode is a generated GoMock package.
+package mock_linode
 
 import (
 	context "context"
