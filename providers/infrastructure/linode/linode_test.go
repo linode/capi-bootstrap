@@ -1,4 +1,4 @@
-package Linode
+package linode
 
 import (
 	mockClient "capi-bootstrap/providers/infrastructure/linode/mock"
