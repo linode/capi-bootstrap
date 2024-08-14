@@ -1,10 +1,11 @@
 package backend
 
 import (
-	capiYaml "capi-bootstrap/yaml"
 	"context"
 
 	v1 "k8s.io/client-go/tools/clientcmd/api/v1"
+
+	capiYaml "capi-bootstrap/yaml"
 )
 
 type Provider interface {

@@ -10,10 +10,11 @@
 package mock_controlplane
 
 import (
-	types "capi-bootstrap/types"
-	yaml "capi-bootstrap/yaml"
 	context "context"
 	reflect "reflect"
+
+	types "capi-bootstrap/types"
+	yaml "capi-bootstrap/yaml"
 
 	gomock "go.uber.org/mock/gomock"
 )

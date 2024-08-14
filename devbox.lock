@@ -2,50 +2,50 @@
   "lockfile_version": "1",
   "packages": {
     "clusterctl@latest": {
-      "last_modified": "2024-05-17T18:08:26Z",
-      "resolved": "github:NixOS/nixpkgs/0837fbf227364d79cbae8fff2378125526905cbe#clusterctl",
+      "last_modified": "2024-07-20T09:11:00Z",
+      "resolved": "github:NixOS/nixpkgs/6e14bbce7bea6c4efd7adfa88a40dac750d80100#clusterctl",
       "source": "devbox-search",
-      "version": "1.7.2",
+      "version": "1.7.4",
       "systems": {
         "aarch64-darwin": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/k3sa6qa6lnqr4p4bw16nil88rhjq0m5d-clusterctl-1.7.2",
+              "path": "/nix/store/iv4w4acwl5gpp3cr4vmnx0950gp4374q-clusterctl-1.7.4",
               "default": true
             }
           ],
-          "store_path": "/nix/store/k3sa6qa6lnqr4p4bw16nil88rhjq0m5d-clusterctl-1.7.2"
+          "store_path": "/nix/store/iv4w4acwl5gpp3cr4vmnx0950gp4374q-clusterctl-1.7.4"
         },
         "aarch64-linux": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/hq959bcap5m5sm55w2lwhnhg0r1m883c-clusterctl-1.7.2",
+              "path": "/nix/store/h93rjqmlj512y5s5c7x1kpglmh2qqmnx-clusterctl-1.7.4",
               "default": true
             }
           ],
-          "store_path": "/nix/store/hq959bcap5m5sm55w2lwhnhg0r1m883c-clusterctl-1.7.2"
+          "store_path": "/nix/store/h93rjqmlj512y5s5c7x1kpglmh2qqmnx-clusterctl-1.7.4"
         },
         "x86_64-darwin": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/x4ngpgq63lrmi067gwpx5b2xqydpfcx5-clusterctl-1.7.2",
+              "path": "/nix/store/04zp653g5111aa81wicdlaivmjcgn7ns-clusterctl-1.7.4",
               "default": true
             }
           ],
-          "store_path": "/nix/store/x4ngpgq63lrmi067gwpx5b2xqydpfcx5-clusterctl-1.7.2"
+          "store_path": "/nix/store/04zp653g5111aa81wicdlaivmjcgn7ns-clusterctl-1.7.4"
         },
         "x86_64-linux": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/bkv26cybz69ijl8b3jq7r2zddbcjq9pk-clusterctl-1.7.2",
+              "path": "/nix/store/xv42ciazaaz8qs31gj89gfy0ghvjjdd6-clusterctl-1.7.4",
               "default": true
             }
           ],
-          "store_path": "/nix/store/bkv26cybz69ijl8b3jq7r2zddbcjq9pk-clusterctl-1.7.2"
+          "store_path": "/nix/store/xv42ciazaaz8qs31gj89gfy0ghvjjdd6-clusterctl-1.7.4"
         }
       }
     },
@@ -98,134 +98,134 @@
       }
     },
     "golangci-lint@latest": {
-      "last_modified": "2024-05-22T06:18:38Z",
-      "resolved": "github:NixOS/nixpkgs/3f316d2a50699a78afe5e77ca486ad553169061e#golangci-lint",
+      "last_modified": "2024-07-20T09:11:00Z",
+      "resolved": "github:NixOS/nixpkgs/6e14bbce7bea6c4efd7adfa88a40dac750d80100#golangci-lint",
       "source": "devbox-search",
-      "version": "1.58.2",
+      "version": "1.59.1",
       "systems": {
         "aarch64-darwin": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/pv2mp5glilmcn6azgfb1ykkv1c4ahvz9-golangci-lint-1.58.2",
+              "path": "/nix/store/80cn62vqs99adkpvjv5qmv9nvkahcy0s-golangci-lint-1.59.1",
               "default": true
             }
           ],
-          "store_path": "/nix/store/pv2mp5glilmcn6azgfb1ykkv1c4ahvz9-golangci-lint-1.58.2"
+          "store_path": "/nix/store/80cn62vqs99adkpvjv5qmv9nvkahcy0s-golangci-lint-1.59.1"
         },
         "aarch64-linux": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/8wxbwn0zxcphhc15j2f8gr2yhx3gvv45-golangci-lint-1.58.2",
+              "path": "/nix/store/f91hm1xlmjy5y18lavfn9889azxam4mp-golangci-lint-1.59.1",
               "default": true
             }
           ],
-          "store_path": "/nix/store/8wxbwn0zxcphhc15j2f8gr2yhx3gvv45-golangci-lint-1.58.2"
+          "store_path": "/nix/store/f91hm1xlmjy5y18lavfn9889azxam4mp-golangci-lint-1.59.1"
         },
         "x86_64-darwin": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/ahhq31z0vfqvzjidszj2041v7h8wwv02-golangci-lint-1.58.2",
+              "path": "/nix/store/pn0lpm53xffqvdfd72n4mfn8ja4kmf1h-golangci-lint-1.59.1",
               "default": true
             }
           ],
-          "store_path": "/nix/store/ahhq31z0vfqvzjidszj2041v7h8wwv02-golangci-lint-1.58.2"
+          "store_path": "/nix/store/pn0lpm53xffqvdfd72n4mfn8ja4kmf1h-golangci-lint-1.59.1"
         },
         "x86_64-linux": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/v122b69w672xiv6rpv298mjlv9qrnv21-golangci-lint-1.58.2",
+              "path": "/nix/store/fx4p42sdx70hzpzsl71r5zwh8az0p74a-golangci-lint-1.59.1",
               "default": true
             }
           ],
-          "store_path": "/nix/store/v122b69w672xiv6rpv298mjlv9qrnv21-golangci-lint-1.58.2"
+          "store_path": "/nix/store/fx4p42sdx70hzpzsl71r5zwh8az0p74a-golangci-lint-1.59.1"
         }
       }
     },
     "kubectl@latest": {
-      "last_modified": "2024-05-17T18:08:26Z",
-      "resolved": "github:NixOS/nixpkgs/0837fbf227364d79cbae8fff2378125526905cbe#kubectl",
+      "last_modified": "2024-07-07T07:43:47Z",
+      "resolved": "github:NixOS/nixpkgs/b60793b86201040d9dee019a05089a9150d08b5b#kubectl",
       "source": "devbox-search",
-      "version": "1.30.1",
+      "version": "1.30.2",
       "systems": {
         "aarch64-darwin": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/wrpbbz77yk84r5pk36fn469q5y9hpxms-kubectl-1.30.1",
+              "path": "/nix/store/i1zidf41bkfzs2l1pq9fi1frymsfgywc-kubectl-1.30.2",
               "default": true
             },
             {
               "name": "man",
-              "path": "/nix/store/wvrbv96r915ssaw09c9wj8xsqp0rg0x2-kubectl-1.30.1-man",
+              "path": "/nix/store/dzxnn9mk9plcx3w9862jyd0nxys2yywz-kubectl-1.30.2-man",
               "default": true
             },
             {
               "name": "convert",
-              "path": "/nix/store/z27q44mkfssb704nx0168lsqlxz5vy8a-kubectl-1.30.1-convert"
+              "path": "/nix/store/v9ij5fnxxa02jkzpjvkbxw2jc4p9cbld-kubectl-1.30.2-convert"
             }
           ],
-          "store_path": "/nix/store/wrpbbz77yk84r5pk36fn469q5y9hpxms-kubectl-1.30.1"
+          "store_path": "/nix/store/i1zidf41bkfzs2l1pq9fi1frymsfgywc-kubectl-1.30.2"
         },
         "aarch64-linux": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/xah8iz7brfms9zllnaf1rpmf9ihn41za-kubectl-1.30.1",
+              "path": "/nix/store/k7ql4247qs6ny27m3iz5c9xf5gb248a2-kubectl-1.30.2",
               "default": true
             },
             {
               "name": "man",
-              "path": "/nix/store/b1903js3paa8lwjsdcd68pv43pwxnl9a-kubectl-1.30.1-man",
+              "path": "/nix/store/wy64r4nn3isydw4nx257h95qy2x2z4mx-kubectl-1.30.2-man",
               "default": true
             },
             {
               "name": "convert",
-              "path": "/nix/store/iwvm4ybhxn00bhmskjgq601051rkvphx-kubectl-1.30.1-convert"
+              "path": "/nix/store/ic8za302hvb4kf4zrs55ivr4q2n2lznn-kubectl-1.30.2-convert"
             }
           ],
-          "store_path": "/nix/store/xah8iz7brfms9zllnaf1rpmf9ihn41za-kubectl-1.30.1"
+          "store_path": "/nix/store/k7ql4247qs6ny27m3iz5c9xf5gb248a2-kubectl-1.30.2"
         },
         "x86_64-darwin": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/c4q06h9w6288lcjp8vj30gkvqwjjwqaz-kubectl-1.30.1",
+              "path": "/nix/store/v029n959l5b289br0cq591b04yc48516-kubectl-1.30.2",
               "default": true
             },
             {
               "name": "man",
-              "path": "/nix/store/31wm58wiinklq5rva4lpycm2mwhlv606-kubectl-1.30.1-man",
+              "path": "/nix/store/0dvcxn7gsi2ycy9blb7pcy506w4xp2vi-kubectl-1.30.2-man",
               "default": true
             },
             {
               "name": "convert",
-              "path": "/nix/store/qjspnv76bwlj956jni1j62yq7qh261gq-kubectl-1.30.1-convert"
+              "path": "/nix/store/2nfq4ivwa4a7jwc0183f2wpl1jxbn754-kubectl-1.30.2-convert"
             }
           ],
-          "store_path": "/nix/store/c4q06h9w6288lcjp8vj30gkvqwjjwqaz-kubectl-1.30.1"
+          "store_path": "/nix/store/v029n959l5b289br0cq591b04yc48516-kubectl-1.30.2"
         },
         "x86_64-linux": {
           "outputs": [
             {
               "name": "out",
-              "path": "/nix/store/faakmnmx9q8nhi890f4zsls4js4b8pfy-kubectl-1.30.1",
+              "path": "/nix/store/3vkf0406s1i6l89hk5wrakh4bbn0p1p2-kubectl-1.30.2",
               "default": true
             },
             {
               "name": "man",
-              "path": "/nix/store/aiszaxdqhn41rfb3y7z2853il1qp01sc-kubectl-1.30.1-man",
+              "path": "/nix/store/3wbvgkkka1knkxvyr4c8qbpr448smw8i-kubectl-1.30.2-man",
               "default": true
             },
             {
               "name": "convert",
-              "path": "/nix/store/bp7lqx3ibnc01f73y0z7yy80lwk108gy-kubectl-1.30.1-convert"
+              "path": "/nix/store/h5zxz8db6wligwhw5gnwk4gbc8j1ixik-kubectl-1.30.2-convert"
             }
           ],
-          "store_path": "/nix/store/faakmnmx9q8nhi890f4zsls4js4b8pfy-kubectl-1.30.1"
+          "store_path": "/nix/store/3vkf0406s1i6l89hk5wrakh4bbn0p1p2-kubectl-1.30.2"
         }
       }
     }

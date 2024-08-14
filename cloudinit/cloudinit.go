@@ -3,23 +3,22 @@ package cloudinit
 import (
 	"archive/tar"
 	"bytes"
-	"capi-bootstrap/providers/backend"
-	"capi-bootstrap/providers/controlplane"
-	"capi-bootstrap/providers/infrastructure"
-	"capi-bootstrap/types"
 	"compress/gzip"
 	"context"
 	"embed"
-	_ "embed"
 	"fmt"
 	"io"
 	"path/filepath"
 	"strings"
 	"time"
 
-	capiYaml "capi-bootstrap/yaml"
-
 	"gopkg.in/yaml.v3"
+
+	"capi-bootstrap/providers/backend"
+	"capi-bootstrap/providers/controlplane"
+	"capi-bootstrap/providers/infrastructure"
+	"capi-bootstrap/types"
+	capiYaml "capi-bootstrap/yaml"
 )
 
 //go:embed files

@@ -1,10 +1,11 @@
 package infrastructure
 
 import (
-	Linode "capi-bootstrap/providers/infrastructure/linode"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	Linode "capi-bootstrap/providers/infrastructure/linode"
 )
 
 func TestNewProvider(t *testing.T) {

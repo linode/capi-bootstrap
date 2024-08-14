@@ -1,8 +1,6 @@
 package linode
 
 import (
-	"capi-bootstrap/types"
-	capiYaml "capi-bootstrap/yaml"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -13,15 +11,17 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/linode/cluster-api-provider-linode/api/v1alpha1"
-	caplv1alpha1 "github.com/linode/cluster-api-provider-linode/api/v1alpha1"
 	"github.com/linode/cluster-api-provider-linode/api/v1alpha2"
 	"github.com/linode/linodego"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/cluster-api/api/v1beta1"
 	"sigs.k8s.io/yaml"
+
+	"capi-bootstrap/types"
+	capiYaml "capi-bootstrap/yaml"
 )
 
-// LinodeClient is an interface that includes all linodego calls, so they can be mocked out for testing
+// LinodeClient is an interface that includes all linodego calls, so they can be mocked out for testing.
 type LinodeClient interface {
 	ListNodeBalancers(ctx context.Context, opts *linodego.ListOptions) ([]linodego.NodeBalancer, error)
 	CreateNodeBalancer(ctx context.Context, opts linodego.NodeBalancerCreateOptions) (*linodego.NodeBalancer, error)
@@ -310,8 +310,8 @@ func (p *Infrastructure) Delete(ctx context.Context, values *types.Values, force
 	return nil
 }
 
-func GetLinodeMachineDef(manifests []string) *caplv1alpha1.LinodeMachineTemplate {
-	var template caplv1alpha1.LinodeMachineTemplate
+func GetLinodeMachineDef(manifests []string) *v1alpha1.LinodeMachineTemplate {
+	var template v1alpha1.LinodeMachineTemplate
 	for _, manifest := range manifests {
 		_ = yaml.Unmarshal([]byte(manifest), &template)
 		if template.Kind == "LinodeMachineTemplate" {
@@ -352,8 +352,8 @@ func (p *Infrastructure) UpdateManifests(ctx context.Context, manifests []string
 	return nil
 }
 
-func GetVPCRef(manifests []string) *caplv1alpha1.LinodeVPC {
-	var vpc caplv1alpha1.LinodeVPC
+func GetVPCRef(manifests []string) *v1alpha1.LinodeVPC {
+	var vpc v1alpha1.LinodeVPC
 	for _, manifest := range manifests {
 		_ = yaml.Unmarshal([]byte(manifest), &vpc)
 		if vpc.Kind == "LinodeVPC" {

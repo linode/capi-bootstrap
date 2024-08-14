@@ -2,8 +2,6 @@ package s3
 
 import (
 	"bytes"
-	mockClient "capi-bootstrap/providers/backend/s3/mock"
-	capiYaml "capi-bootstrap/yaml"
 	"context"
 	"errors"
 	"io"
@@ -16,6 +14,9 @@ import (
 	"go.uber.org/mock/gomock"
 	v1 "k8s.io/client-go/tools/clientcmd/api/v1"
 	"k8s.io/utils/ptr"
+
+	mockClient "capi-bootstrap/providers/backend/s3/mock"
+	capiYaml "capi-bootstrap/yaml"
 )
 
 func TestS3_PreCmd(t *testing.T) {
@@ -166,7 +167,6 @@ clusters:
 				assert.Equal(t, tc.want.Clusters[0].Name, actualConfig.Clusters[0].Name)
 				assert.Equal(t, tc.want.Clusters[0].Cluster.Server, actualConfig.Clusters[0].Cluster.Server)
 			}
-
 		})
 	}
 }
@@ -231,9 +231,7 @@ users: null
 				assert.EqualErrorf(t, err, tc.wantErr, "expected error message: %s", tc.wantErr)
 			} else {
 				assert.NoError(t, err)
-
 			}
-
 		})
 	}
 }
@@ -347,10 +345,8 @@ func TestS3_WriteFiles(t *testing.T) {
 					assert.Empty(t, file.Content)
 				}
 			}
-
 		})
 	}
-
 }
 func TestS3_Delete(t *testing.T) {
 	type test struct {
@@ -454,8 +450,6 @@ func TestS3_Delete(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 			}
-
 		})
 	}
-
 }

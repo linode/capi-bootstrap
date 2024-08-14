@@ -1,12 +1,11 @@
 package cmd
 
 import (
-	"k8s.io/klog/v2"
-
 	"github.com/spf13/cobra"
+	"k8s.io/klog/v2"
 )
 
-// getCmd represents the get command
+// getCmd represents the get command.
 var getCmd = &cobra.Command{
 	Use:   "get",
 	Short: "A brief description of your command",

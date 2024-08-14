@@ -1,0 +1,123 @@
+run:
+  timeout: 10m
+  go: "1.22"
+  allow-parallel-runners: true
+
+linters:
+  enable:
+    - asasalint
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - containedctx
+    - copyloopvar
+    - dogsled
+    - dupword
+    - durationcheck
+    - errcheck
+    - errchkjson
+    - gci
+    - ginkgolinter
+    - goconst
+    - gocritic
+    - godot
+    - gofmt
+    - goimports
+    - goprintffuncname
+    - gosec
+    - gosimple
+    - govet
+    - importas
+    - ineffassign
+    - intrange
+    - loggercheck
+    - misspell
+    - nakedret
+    - nilerr
+    - noctx
+    - nolintlint
+    - nosprintfhostport
+    - prealloc
+    - predeclared
+    # Comment out for now
+    # - revive
+    - rowserrcheck
+    - staticcheck
+    - stylecheck
+    - tenv
+    - typecheck
+    - unconvert
+    - unparam
+    - unused
+    - usestdlibvars
+    - whitespace
+
+linters-settings:
+  gci:
+    sections:
+      - standard # Standard section: captures all standard packages.
+      - default # Default section: contains all imports that could not be matched to another section type.
+      - prefix(capi-bootstrap) # Custom section: groups all imports with the specified Prefix.
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - performance
+    disabled-checks:
+      - appendAssign
+      - dupImport # https://github.com/go-critic/go-critic/issues/845
+      - evalOrder
+      - ifElseChain
+      - octalLiteral
+      - regexpSimplify
+      - sloppyReassign
+      - truncateCmp
+      - typeDefFirst
+      - unnamedResult
+      - unnecessaryDefer
+      - whyNoLint
+      - wrapperFunc
+      - rangeValCopy
+      - hugeParam
+  revive:
+    rules:
+      # The following rules are recommended https://github.com/mgechev/revive#recommended-configuration
+      - name: blank-imports
+      - name: context-as-argument
+      - name: context-keys-type
+      - name: dot-imports
+      - name: error-return
+      - name: error-strings
+      - name: error-naming
+      - name: exported
+      - name: if-return
+      - name: increment-decrement
+      - name: var-naming
+      - name: var-declaration
+      - name: package-comments
+      - name: range
+      - name: receiver-naming
+      - name: time-naming
+      - name: unexported-return
+      - name: indent-error-flow
+      - name: errorf
+      - name: empty-block
+      - name: superfluous-else
+      - name: unused-parameter
+      - name: unreachable-code
+      - name: redefines-builtin-id
+      #
+      # Rules in addition to the recommended configuration above.
+      #
+      - name: bool-literal-in-expr
+      - name: constant-logical-expr
+  gosec:
+    excludes:
+      - G306 # Poor file permissions used when writing to a new file
+  goimports:
+    # put imports beginning with prefix after 3rd-party packages;
+    # it's a comma-separated list of prefixes
+    local-prefixes: capi-bootstrap
+issues:
+  max-same-issues: 0
+  max-issues-per-linter: 0

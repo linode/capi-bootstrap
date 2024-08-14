@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	Linode "capi-bootstrap/providers/infrastructure/linode"
-	"capi-bootstrap/yaml"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -12,17 +10,18 @@ import (
 	"runtime"
 	"strings"
 
-	"k8s.io/klog/v2"
-
-	"capi-bootstrap/providers/backend"
-
 	"github.com/helloyi/go-sshclient"
 	"github.com/linode/linodego"
 	"github.com/spf13/cobra"
+	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
+
+	"capi-bootstrap/providers/backend"
+	Linode "capi-bootstrap/providers/infrastructure/linode"
+	"capi-bootstrap/yaml"
 )
 
-// kubeconfigCmd represents the kubeconfig command
+// kubeconfigCmd represents the kubeconfig command.
 var kubeconfigCmd = &cobra.Command{
 	Use:   "kubeconfig",
 	Short: "A brief description of your command",
@@ -86,7 +85,6 @@ func runGetKubeconfig(cmd *cobra.Command, clusterName string) error {
 		if err != nil {
 			return err
 		}
-
 	}
 	fmt.Println(string(kconf))
 	return nil
@@ -108,11 +106,11 @@ func getKubeconfigDirect(cmd *cobra.Command, clusterName string) ([]byte, error)
 		Filter: string(instanceListFilter),
 	}))
 	if err != nil {
-		return nil, fmt.Errorf("Could not list instances: %v", err)
+		return nil, fmt.Errorf("could not list instances: %v", err)
 	}
 
 	if len(instances) == 0 {
-		return nil, fmt.Errorf("Could not find a Linode instance with tag %s", clusterName)
+		return nil, fmt.Errorf("could not find a Linode instance with tag %s", clusterName)
 	}
 
 	var serverIP string
@@ -164,7 +162,6 @@ func getKubeconfigDirect(cmd *cobra.Command, clusterName string) ([]byte, error)
 	if !cmd.Flags().Changed("identity-file") &&
 		!cmd.Flags().Changed("username") &&
 		!cmd.Flags().Changed("password") {
-
 		// no args changed, default to root with ~/.ssh/id_rsa
 		idfile, err = homedir(filepath.Join("~", ".ssh", "id_rsa"))
 		if err != nil {

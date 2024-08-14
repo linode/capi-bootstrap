@@ -2,7 +2,6 @@ package s3
 
 import (
 	"bytes"
-	capiYaml "capi-bootstrap/yaml"
 	"context"
 	"encoding/json"
 	"errors"
@@ -13,13 +12,13 @@ import (
 	"time"
 
 	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
-
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	v1 "k8s.io/client-go/tools/clientcmd/api/v1"
 	k8syaml "sigs.k8s.io/yaml"
 
-	v1 "k8s.io/client-go/tools/clientcmd/api/v1"
+	capiYaml "capi-bootstrap/yaml"
 )
 
 func NewBackend() *Backend {
@@ -52,7 +51,6 @@ type Backend struct {
 }
 
 func (b *Backend) PreCmd(_ context.Context, _ string) error {
-
 	b.BucketName = os.Getenv("AWS_BUCKET_NAME")
 	if b.BucketName == "" {
 		return errors.New("AWS_BUCKET_NAME environment variable not set")
@@ -172,7 +170,6 @@ func (b *Backend) uploadFile(ctx context.Context, fileContent string, filePath s
 }
 
 func (b *Backend) WriteFiles(ctx context.Context, clusterName string, cloudInitConfig *capiYaml.Config) ([]string, error) {
-
 	downloadCmds := make([]string, len(cloudInitConfig.WriteFiles))
 	newFiles := make([]capiYaml.InitFile, len(cloudInitConfig.WriteFiles))
 	for i, file := range cloudInitConfig.WriteFiles {

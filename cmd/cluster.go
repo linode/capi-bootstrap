@@ -1,25 +1,25 @@
 package cmd
 
 import (
-	"capi-bootstrap/providers/backend"
-	"capi-bootstrap/providers/controlplane"
-	"capi-bootstrap/providers/infrastructure"
-	"capi-bootstrap/state"
-	"capi-bootstrap/types"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"capi-bootstrap/cloudinit"
-	capiYaml "capi-bootstrap/yaml"
-
 	"github.com/spf13/cobra"
 	"k8s.io/klog/v2"
+
+	"capi-bootstrap/cloudinit"
+	"capi-bootstrap/providers/backend"
+	"capi-bootstrap/providers/controlplane"
+	"capi-bootstrap/providers/infrastructure"
+	"capi-bootstrap/state"
+	"capi-bootstrap/types"
+	capiYaml "capi-bootstrap/yaml"
 )
 
-// clusterCmd represents the cluster command
+// clusterCmd represents the cluster command.
 var clusterCmd = &cobra.Command{
 	Use:   "cluster",
 	Short: "A brief description of your command",
@@ -29,9 +29,7 @@ and usage of using your command. For example:
 Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return runBootstrapCluster(cmd, args)
-	},
+	RunE: runBootstrapCluster,
 }
 
 type clusterOptions struct {
@@ -81,7 +79,7 @@ func init() {
 	rootCmd.AddCommand(clusterCmd)
 }
 
-func runBootstrapCluster(cmd *cobra.Command, args []string) error {
+func runBootstrapCluster(cmd *cobra.Command, _ []string) error {
 	ctx := cmd.Context()
 
 	manifestFile, err := cmd.Flags().GetString("manifest")
@@ -148,7 +146,7 @@ func runBootstrapCluster(cmd *cobra.Command, args []string) error {
 
 	clusterState, err := state.NewState(values.Kubeconfig)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	cloudConfig, err := cloudinit.GenerateCloudInit(ctx, values, infrastructureProvider, controlPlaneProvider, backendProvider)

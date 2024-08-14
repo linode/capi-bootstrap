@@ -1,14 +1,15 @@
 package cmd
 
 import (
-	"capi-bootstrap/providers/backend"
-	"capi-bootstrap/state"
 	"errors"
 
 	"github.com/spf13/cobra"
+
+	"capi-bootstrap/providers/backend"
+	"capi-bootstrap/state"
 )
 
-// deleteCmd represents the delete command
+// deleteCmd represents the delete command.
 var deleteCmd = &cobra.Command{
 	Use:   "delete",
 	Short: "A brief description of your command",

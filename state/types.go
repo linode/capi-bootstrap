@@ -1,15 +1,15 @@
 package state
 
 import (
+	"encoding/json"
+
+	"k8s.io/apimachinery/pkg/runtime"
+	v1 "k8s.io/client-go/tools/clientcmd/api/v1"
+
 	"capi-bootstrap/providers/backend"
 	"capi-bootstrap/providers/controlplane"
 	"capi-bootstrap/providers/infrastructure"
 	"capi-bootstrap/types"
-	"encoding/json"
-
-	"k8s.io/apimachinery/pkg/runtime"
-
-	v1 "k8s.io/client-go/tools/clientcmd/api/v1"
 )
 
 const (
