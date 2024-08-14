@@ -1,6 +1,7 @@
 package file
 
 import (
+	capiYaml "capi-bootstrap/yaml"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -17,6 +18,14 @@ func NewBackend() *Backend {
 		Name:     "file",
 		BasePath: filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "cluster-api", "bootstrap"),
 	}
+}
+
+func (b *Backend) WriteConfig(ctx context.Context, clusterName string, config *v1.Config) error {
+	panic("implement me")
+}
+
+func (b *Backend) WriteFiles(ctx context.Context, clusterName string, cloudInitFile *capiYaml.Config) ([]string, error) {
+	panic("implement me")
 }
 
 type Backend struct {

@@ -6,6 +6,7 @@ MOCKGEN_VERSION ?= v0.4.0
 GOLANGCI_LINT ?= $(LOCALBIN)/golangci-lint-$(GOLANGCI_LINT_VERSION)
 MOCKGEN ?= $(LOCALBIN)/mockgen-$(MOCKGEN_VERSION)
 INFRASTRUCTURE_PROVIDERS ?= linode
+BACKEND_PROVIDERS ?= s3
 all: clean fmt test vet build
 
 .PHONY: build
@@ -19,7 +20,7 @@ $(LOCALBIN):
 
 .PHONY: build
 test: generate
-	go test -race -v ./... -coverprofile cover.out
+	go test -race -v `go list ./... | grep -v mock` -coverprofile cover.out
 
 .PHONY: coverage
 coverage: test
@@ -27,11 +28,14 @@ coverage: test
 
 .PHONY: generate
 generate: mockgen
-	for provider in $(INFRASTRUCTURE_PROVIDERS) ; do \
-            $(MOCKGEN) -destination=providers/infrastructure/linode/mock/mock_$$provider.go -source=providers/infrastructure/$$provider/$$provider.go ; \
+	@for provider in $(INFRASTRUCTURE_PROVIDERS) ; do \
+		$(MOCKGEN) -destination=providers/infrastructure/$$provider/mock/mock_$$provider.go -source=providers/infrastructure/$$provider/$$provider.go ; \
 	done
-	$(MOCKGEN) -destination=providers/controlplane/mock/mock_controlplane.go -source=providers/controlplane/types.go
-	$(MOCKGEN) -destination=providers/infrastructure/mock/mock_types.go -source=providers/infrastructure/types.go
+	@for provider in $(BACKEND_PROVIDERS) ; do \
+		$(MOCKGEN) -destination=providers/backend/$$provider/mock/mock_$$provider.go -source=providers/backend/$$provider/$$provider.go ; \
+	done
+	@$(MOCKGEN) -destination=providers/controlplane/mock/mock_controlplane.go -source=providers/controlplane/types.go
+	@$(MOCKGEN) -destination=providers/infrastructure/mock/mock_types.go -source=providers/infrastructure/types.go
 
 
 .PHONY: vet

@@ -101,6 +101,51 @@ func (mr *MockProviderMockRecorder) GenerateRunCommand(ctx, values any) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GenerateRunCommand", reflect.TypeOf((*MockProvider)(nil).GenerateRunCommand), ctx, values)
 }
 
+// GetControlPlaneCertFiles mocks base method.
+func (m *MockProvider) GetControlPlaneCertFiles(ctx context.Context) ([]yaml.InitFile, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetControlPlaneCertFiles", ctx)
+	ret0, _ := ret[0].([]yaml.InitFile)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetControlPlaneCertFiles indicates an expected call of GetControlPlaneCertFiles.
+func (mr *MockProviderMockRecorder) GetControlPlaneCertFiles(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetControlPlaneCertFiles", reflect.TypeOf((*MockProvider)(nil).GetControlPlaneCertFiles), ctx)
+}
+
+// GetControlPlaneCertSecret mocks base method.
+func (m *MockProvider) GetControlPlaneCertSecret(ctx context.Context, values *types.Values) (*yaml.InitFile, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetControlPlaneCertSecret", ctx, values)
+	ret0, _ := ret[0].(*yaml.InitFile)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetControlPlaneCertSecret indicates an expected call of GetControlPlaneCertSecret.
+func (mr *MockProviderMockRecorder) GetControlPlaneCertSecret(ctx, values any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetControlPlaneCertSecret", reflect.TypeOf((*MockProvider)(nil).GetControlPlaneCertSecret), ctx, values)
+}
+
+// GetKubeconfig mocks base method.
+func (m *MockProvider) GetKubeconfig(ctx context.Context, values *types.Values) (*yaml.InitFile, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetKubeconfig", ctx, values)
+	ret0, _ := ret[0].(*yaml.InitFile)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetKubeconfig indicates an expected call of GetKubeconfig.
+func (mr *MockProviderMockRecorder) GetKubeconfig(ctx, values any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetKubeconfig", reflect.TypeOf((*MockProvider)(nil).GetKubeconfig), ctx, values)
+}
+
 // PreDeploy mocks base method.
 func (m *MockProvider) PreDeploy(ctx context.Context, values *types.Values) error {
 	m.ctrl.T.Helper()
