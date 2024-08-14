@@ -1,7 +1,6 @@
 package file
 
 import (
-	capiYaml "capi-bootstrap/yaml"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -11,6 +10,8 @@ import (
 	v1 "k8s.io/client-go/tools/clientcmd/api/v1"
 	"k8s.io/klog/v2"
 	k8syaml "sigs.k8s.io/yaml"
+
+	capiYaml "capi-bootstrap/yaml"
 )
 
 func NewBackend() *Backend {

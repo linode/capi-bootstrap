@@ -12,7 +12,7 @@ type InitFile struct {
 }
 
 type Source struct {
-	Uri     string            `yaml:"uri"`
+	URI     string            `yaml:"uri"`
 	Headers map[string]string `yaml:"headers,omitempty"`
 }
 

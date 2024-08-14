@@ -6,17 +6,17 @@ import (
 	"os"
 )
 
-// IoFS implements the FS interface but only returns a single file from stdin
+// IoFS implements the FS interface but only returns a single file from stdin.
 type IoFS struct {
 	Reader io.Reader
 }
 
-// Open returns a File containing the contents of stdin
+// Open returns a File containing the contents of stdin.
 func (iofs IoFS) Open(_ string) (fs.File, error) {
 	return IoFile{contents: iofs.Reader}, nil
 }
 
-// IoFile implements the File interface but only returns a content from stdin
+// IoFile implements the File interface but only returns a content from stdin.
 type IoFile struct {
 	contents io.Reader
 }

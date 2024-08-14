@@ -1,13 +1,9 @@
 package linode
 
 import (
-	mockClient "capi-bootstrap/providers/infrastructure/linode/mock"
-	"capi-bootstrap/types"
-	capiYaml "capi-bootstrap/yaml"
 	"context"
 	"errors"
 	"net"
-	"os"
 	"testing"
 
 	"github.com/linode/cluster-api-provider-linode/api/v1alpha1"
@@ -16,6 +12,10 @@ import (
 	"go.uber.org/mock/gomock"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
+
+	mockClient "capi-bootstrap/providers/infrastructure/linode/mock"
+	"capi-bootstrap/types"
+	capiYaml "capi-bootstrap/yaml"
 )
 
 func TestCAPL_GenerateCapiFile(t *testing.T) {
@@ -401,18 +401,16 @@ spec:
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
 			ctrl := gomock.NewController(t)
 			mock := mockClient.NewMockLinodeClient(ctrl)
-			err := os.Setenv("AUTHORIZED_KEYS", "test-key")
-			assert.NoError(t, err)
+			t.Setenv("AUTHORIZED_KEYS", "test-key")
 			ctx := context.Background()
 			Infra := Infrastructure{
 				Client:         tc.mockClient(ctx, t, mock),
 				Token:          "test-token",
 				AuthorizedKeys: "test-key",
 			}
-			err = Infra.PreDeploy(ctx, &tc.input)
+			err := Infra.PreDeploy(ctx, &tc.input)
 			if tc.wantErr == "" {
 				assert.NoError(t, err)
 				assert.Equal(t, tc.want.ClusterEndpoint, tc.input.ClusterEndpoint)
@@ -424,7 +422,6 @@ spec:
 			} else {
 				assert.EqualErrorf(t, err, tc.wantErr, "expected error message: %s", tc.wantErr)
 			}
-
 		})
 	}
 }
@@ -495,11 +492,9 @@ func TestCAPL_Deploy(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
 			ctrl := gomock.NewController(t)
 			mock := mockClient.NewMockLinodeClient(ctrl)
-			err := os.Setenv("AUTHORIZED_KEYS", "test-key")
-			assert.NoError(t, err)
+			t.Setenv("AUTHORIZED_KEYS", "test-key")
 			ctx := context.Background()
 			Infra := Infrastructure{
 				Client: tc.mockClient(ctx, t, mock),
@@ -534,7 +529,7 @@ func TestCAPL_Deploy(t *testing.T) {
 				Token:          "test-token",
 				AuthorizedKeys: "test-key",
 			}
-			err = Infra.Deploy(ctx, &tc.input, metadata)
+			err := Infra.Deploy(ctx, &tc.input, metadata)
 			if tc.wantErr == "" {
 				assert.NoError(t, err)
 			} else {
@@ -728,18 +723,16 @@ func TestCAPL_Delete(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
 			ctrl := gomock.NewController(t)
 			mock := mockClient.NewMockLinodeClient(ctrl)
-			err := os.Setenv("AUTHORIZED_KEYS", "test-key")
-			assert.NoError(t, err)
+			t.Setenv("AUTHORIZED_KEYS", "test-key")
 			ctx := context.Background()
 			Infra := Infrastructure{
 				Client:         tc.mockClient(ctx, t, mock),
 				Token:          "test-token",
 				AuthorizedKeys: "test-key",
 			}
-			err = Infra.Delete(ctx, &tc.input, tc.force)
+			err := Infra.Delete(ctx, &tc.input, tc.force)
 			if tc.wantErr == "" {
 				assert.NoError(t, err)
 			} else {

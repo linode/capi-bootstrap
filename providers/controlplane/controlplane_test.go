@@ -1,10 +1,11 @@
 package controlplane
 
 import (
-	"capi-bootstrap/providers/controlplane/k3s"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"capi-bootstrap/providers/controlplane/k3s"
 )
 
 func TestNewProvider(t *testing.T) {

@@ -1,34 +1,36 @@
 package k3s
 
 import "C"
+
 import (
-	"capi-bootstrap/types"
-	capiYaml "capi-bootstrap/yaml"
 	"context"
 	"crypto"
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"net"
 	"path"
 	"path/filepath"
 	"strings"
-
-	"github.com/k3s-io/cluster-api-k3s/pkg/kubeconfig"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	clientv1 "k8s.io/client-go/tools/clientcmd/api/v1"
-	"k8s.io/klog/v2"
-	"sigs.k8s.io/cluster-api/util/certs"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/google/uuid"
 	"github.com/k3s-io/cluster-api-k3s/bootstrap/api/v1beta1"
 	capK3s "github.com/k3s-io/cluster-api-k3s/controlplane/api/v1beta1"
 	"github.com/k3s-io/cluster-api-k3s/pkg/etcd"
 	"github.com/k3s-io/cluster-api-k3s/pkg/k3s"
+	"github.com/k3s-io/cluster-api-k3s/pkg/kubeconfig"
 	secrets "github.com/k3s-io/cluster-api-k3s/pkg/secret"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	clientv1 "k8s.io/client-go/tools/clientcmd/api/v1"
+	"k8s.io/klog/v2"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
+	"sigs.k8s.io/cluster-api/util/certs"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
+
+	"capi-bootstrap/types"
+	capiYaml "capi-bootstrap/yaml"
 )
 
 type ControlPlane struct {
@@ -108,7 +110,7 @@ func (p *ControlPlane) PreDeploy(ctx context.Context, values *types.Values) erro
 			}
 		}
 	}
-	newKubeconfig, err := kubeconfig.New(values.ClusterName, fmt.Sprintf("https://%s:%d", values.ClusterEndpoint, 6443), clientCACert, clientCAKey, serverCACert)
+	newKubeconfig, err := kubeconfig.New(values.ClusterName, net.JoinHostPort(values.ClusterEndpoint, "6443"), clientCACert, clientCAKey, serverCACert)
 	if err != nil {
 		return errors.Join(errors.New("failed to generate kubeconfig"), err)
 	}

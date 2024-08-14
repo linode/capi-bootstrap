@@ -1,11 +1,12 @@
 package backend
 
 import (
-	"capi-bootstrap/providers/backend/file"
-	"capi-bootstrap/providers/backend/s3"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
+	"capi-bootstrap/providers/backend/file"
+	"capi-bootstrap/providers/backend/s3"
 )
 
 func TestNewProvider(t *testing.T) {

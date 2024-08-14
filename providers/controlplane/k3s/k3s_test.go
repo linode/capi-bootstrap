@@ -1,8 +1,6 @@
 package k3s
 
 import (
-	"capi-bootstrap/types"
-	capiYaml "capi-bootstrap/yaml"
 	"context"
 	"testing"
 
@@ -10,6 +8,9 @@ import (
 	"github.com/k3s-io/cluster-api-k3s/pkg/etcd"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/utils/ptr"
+
+	"capi-bootstrap/types"
+	capiYaml "capi-bootstrap/yaml"
 )
 
 func TestK3s_GenerateCapiFile(t *testing.T) {
@@ -188,13 +189,11 @@ spec:
 			if tc.wantErr != "" {
 				assert.EqualErrorf(t, err, tc.wantErr, "expected error message: %s", tc.wantErr)
 			} else {
-				// assert.Equalf(t, tc.input.ControlPlaneProvider, tc.want.ControlPlaneProvider, "expected manifest: %v", tc.want.ControlPlane)
 				assert.Equalf(t, tc.input.K8sVersion, tc.want.K8sVersion, "expected manifest: %v", tc.want.K8sVersion)
 				assert.Equalf(t, tc.input.BootstrapManifestDir, tc.want.BootstrapManifestDir, "expected manifest: %v", tc.want.BootstrapManifestDir)
 			}
 		})
 	}
-
 }
 
 func TestK3s_GenerateRunCommand(t *testing.T) {
@@ -337,7 +336,6 @@ spec:
 			assert.Equal(t, tc.want.PostRunCmd, actual.PostRunCmd, "expected file contents: %s", tc.want.PostRunCmd)
 		})
 	}
-
 }
 
 func TestK3s_GetControlPlaneCertSecret(t *testing.T) {
@@ -380,13 +378,11 @@ spec:
 			assert.NotNil(t, controlPlane.Certs)
 			for _, cert := range controlPlane.Certs {
 				assert.NotNil(t, cert.KeyPair)
-
 			}
 			secretFile, err := controlPlane.GetControlPlaneCertSecret(ctx, &tc.input)
 			assert.NoError(t, err)
 			assert.Equal(t, secretFile.Path, "/var/lib/rancher/k3s/server/manifests/cp-secrets.yaml")
 			assert.NotNil(t, secretFile.Content)
-
 		})
 	}
 }
@@ -431,7 +427,6 @@ spec:
 			assert.NotNil(t, controlPlane.Certs)
 			for _, cert := range controlPlane.Certs {
 				assert.NotNil(t, cert.KeyPair)
-
 			}
 			secretFiles, err := controlPlane.GetControlPlaneCertFiles(ctx)
 			assert.NoError(t, err)
@@ -440,7 +435,6 @@ spec:
 				assert.NotNil(t, secretFile.Path)
 				assert.NotNil(t, secretFile.Content)
 			}
-
 		})
 	}
 }
@@ -485,12 +479,10 @@ spec:
 			assert.NotNil(t, controlPlane.Certs)
 			for _, cert := range controlPlane.Certs {
 				assert.NotNil(t, cert.KeyPair)
-
 			}
 			kubeconfig, err := controlPlane.GetKubeconfig(ctx, &tc.input)
 			assert.NoError(t, err)
 			assert.NotNil(t, kubeconfig)
-
 		})
 	}
 }

@@ -77,7 +77,7 @@ func UpdateCluster(manifests []string) error {
 	return nil
 }
 
-// Marshal returns a marshaled yaml document based on the kubernetes library parsing
+// Marshal returns a marshaled yaml document based on the kubernetes library parsing.
 func Marshal(obj interface{}) ([]byte, error) {
 	return yaml.Marshal(obj)
 }

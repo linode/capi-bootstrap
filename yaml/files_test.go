@@ -1,7 +1,6 @@
 package yaml
 
 import (
-	"capi-bootstrap/types"
 	"os"
 	"path/filepath"
 	"testing"
@@ -10,6 +9,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 	v1meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	capi "sigs.k8s.io/cluster-api/api/v1beta1"
+
+	"capi-bootstrap/types"
 )
 
 func TestConstructFile(t *testing.T) {
@@ -121,7 +122,6 @@ spec:
 				assert.Equal(t, tc.want.Path, actualManifest.Path)
 				assert.Equal(t, tc.want.Content, actualManifest.Content)
 			}
-
 		})
 	}
 }
@@ -321,5 +321,4 @@ spec:
 			}
 		})
 	}
-
 }

@@ -6,7 +6,7 @@ import (
 	v1 "k8s.io/client-go/tools/clientcmd/api/v1"
 )
 
-// Values is the struct including information parsed by all providers
+// Values is the struct including information parsed by all providers.
 type Values struct {
 	// ClusterName is the name of the cluster that is being deployed
 	ClusterName string
