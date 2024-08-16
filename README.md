@@ -2,7 +2,7 @@
 [![codecov](https://codecov.io/gh/linode/capi-bootstrap/graph/badge.svg?token=dgrETnMsen)](https://codecov.io/gh/linode/capi-bootstrap)
 ## Building Requirements
 Note: Using devbox will install necessary requirements to build/run this project, dependencies can be installed outside Devbox as well
-* (Optional)[Devbox](https://www.jetify.com/devbox/)
+* (Optional) [Devbox](https://www.jetify.com/devbox/)
   * Golang
   * clusterctl
   * kubectl
@@ -13,12 +13,10 @@ Note: if you are using devbox, enter into a shell using `devbox shell` before ru
     ```shell
     make all
     ```
-2. set environment variables
+2. Set environment variables
+
+   _Ensure you have also configured any environment variables needed by the [infrastructure](#infrastructure-providers) and [backend](#backend-providers) providers_ 
     ```shell
-    # needed to create the bootstrap VM in the new cluster
-    export LINODE_TOKEN=$GENERATED_LINODE_TOKEN
-    # used for connecting to machines directly to get kubeconfig and other debug steps
-    export AUTHORIZED_KEYS=$YOUR_PUBLIC_KEY
     # if you are not using devbox, add ./bin/ to your path so clusterctl will recognize it as a plugin 
     export PATH=$PATH:./bin/
     # set the name of your cluster
@@ -28,8 +26,8 @@ Note: if you are using devbox, enter into a shell using `devbox shell` before ru
 
    _Note: If you are not using devbox make sure to run `export PATH=$PATH:./bin/`_
     ```shell
-    clusterctl generate cluster $CLUSTER_NAME --control-plane-machine-count=3 --worker-machine-count=3   --kubernetes-version v1.29.4+k3s1     --infrastructure linode-linode:v0.3.1  --flavor k3s-vpcless > test-cluster-k3s.yaml
-    clusterctl bootstrap cluster -m test-cluster-k3s.yaml
+    clusterctl generate cluster $CLUSTER_NAME --control-plane-machine-count=3 --worker-machine-count=3   --kubernetes-version v1.29.4+k3s1     --infrastructure linode-linode:v0.6.0  --flavor k3s > test-cluster-k3s.yaml
+    clusterctl bootstrap cluster -m test-cluster-k3s.yaml --backend s3
     # I0603 10:12:51.190936   70482 cluster.go:85] cluster name: test-cluster
     # I0603 10:12:51.814196   70482 cluster.go:116] Created NodeBalancer: test-cluster
     # I0603 10:12:53.447277   70482 cluster.go:165] Created Linode Instance: test-cluster-bootstrap
@@ -38,8 +36,7 @@ Note: if you are using devbox, enter into a shell using `devbox shell` before ru
     ```
 4. Get kubeconfig for cluster
     ```shell
-    clusterctl bootstrap get kubeconfig $CLUSTER_NAME --ssh  -i $PRIVATE_SSH_KEY_FILE --password $SSH_KEY_PASS > test-kubeconfig
-    # I0603 10:29:23.547688   71898 get_kubeconfig.go:162] Connecting by SSH to <bootstrap IP>:22 using identify file $PRIVATE_SSH_KEY_FILE with username root and a password
+    clusterctl bootstrap get kubeconfig $CLUSTER_NAME --backend s3 > test-kubeconfig
     ```
 5. Connect to cluster
     ```shell
@@ -51,7 +48,7 @@ Note: if you are using devbox, enter into a shell using `devbox shell` before ru
     ```
 6. Delete cluster
     ```shell
-    clusterctl bootstrap delete --force test-cluster                                                                                                                                                                                                                           ✔  4s   ▼  impure  
+    clusterctl bootstrap delete --force $CLUSTER_NAME                                                                                                                                                                                                                           ✔  4s   ▼  impure  
     # I0603 10:42:33.972689   73227 delete.go:67] Will delete instances:
     # I0603 10:42:33.972940   73227 delete.go:69]   Label: test-cluster-bootstrap, ID: 2345534
     # I0603 10:42:33.972952   73227 delete.go:69]   Label: test-cluster-control-plane-gnq5g, ID: 23452345
@@ -64,3 +61,38 @@ Note: if you are using devbox, enter into a shell using `devbox shell` before ru
     # I0603 10:42:35.503298   73227 delete.go:103]   Deleted Instance test-cluster-control-plane-7pgmx
     # I0603 10:42:35.730360   73227 delete.go:110]   Deleted NodeBalancer test-cluster
     ```
+## Supported providers
+### Infrastructure Providers
+* [Linode](https://linode.github.io/cluster-api-provider-linode/)
+    * Identifying Resources - Resources used to identify the infrastructure provider from the parsed manifests.
+      * `LinodeCluster`
+    * Supported Versions - Supported provider versions for parsing manifests
+      * `v1alpha2`
+    * Environment Variables - Required and optional environment variables used to bootstrap a cluster
+    ```bash
+    # [REQUIRED] needed to create the bootstrap VM in the new cluster
+    export LINODE_TOKEN=$GENERATED_LINODE_TOKEN
+    # used for connecting to machines directly for debug steps
+    export AUTHORIZED_KEYS=$YOUR_PUBLIC_KEY
+    ```
+### ControlPlane Providers
+* [K3s](https://github.com/k3s-io/cluster-api-k3s/tree/main)
+  * Identifying resources - Resources used to identify the Controlplane provider from the parsed manifests.
+    * `KthreesControlPlane`
+  * Supported Versions - Supported provider versions for parsing manifests
+    * `v1beta1`
+### Backend Providers
+* S3 
+  * Environment Variables - Required and optional environment variables used to bootstrap a cluster
+  ```bash
+  # [REQUIRED] Bucket Access Key
+  export AWS_ACCESS_KEY=${BUCKET_ACCESS_KEY}
+  # [REQUIRED] Bucket Secret Key
+  export AWS_SECRET_KEY=${BUCKET_SECRET_KEY}
+  # [REQUIRED] Bucket name
+  export AWS_BUCKET_NAME=capi-bootstrap-bucket
+  # region of the bucket if regional buckets are being used
+  export AWS_REGION=us-east-1
+  # base S3 endpoint if this is not the AWS default
+  export AWS_ENDPOINT=https://us-east-1.linodeobjects.com
+  ```

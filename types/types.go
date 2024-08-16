@@ -15,7 +15,7 @@ type Values struct {
 	// Namespace for resources to be installed into
 	Namespace string
 	// The generated Kubeconfig for a bootstrapped cluster
-	Kubeconfig *v1.Config
+	Kubeconfig *v1.Config `json:"-"`
 	// K8sVersion is the version parsed from the providers.ControlPlane
 	K8sVersion string
 	// ClusterKind is the Kind of infrastructure.cluster.x-k8s.io used for this cluster

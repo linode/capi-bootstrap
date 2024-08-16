@@ -109,7 +109,7 @@ func (p *ControlPlane) PreDeploy(ctx context.Context, values *types.Values) erro
 			}
 		}
 	}
-	newKubeconfig, err := kubeconfig.New(values.ClusterName, net.JoinHostPort(values.ClusterEndpoint, "6443"), clientCACert, clientCAKey, serverCACert)
+	newKubeconfig, err := kubeconfig.New(values.ClusterName, fmt.Sprintf("https://%s", net.JoinHostPort(values.ClusterEndpoint, "6443")), clientCACert, clientCAKey, serverCACert)
 	if err != nil {
 		return errors.Join(errors.New("failed to generate kubeconfig"), err)
 	}
