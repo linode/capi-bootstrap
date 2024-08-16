@@ -16,7 +16,7 @@ var (
 )
 
 func init() {
-	rand.New(rand.NewSource(time.Now().UnixNano()))
+	rand.New(rand.NewSource(time.Now().UnixNano())) //nolint: gosec
 
 	kubeconfig := KubeconfigEnv
 	for i, arg := range os.Args {
