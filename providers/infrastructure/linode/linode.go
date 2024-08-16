@@ -55,12 +55,12 @@ func NewInfrastructure() *Infrastructure {
 
 func (p *Infrastructure) GenerateCapiFile(_ context.Context, values *types.Values) (*capiYaml.InitFile, error) {
 	filePath := filepath.Join(values.BootstrapManifestDir, "capi-linode.yaml")
-	return capiYaml.ConstructFile(filePath, filepath.Join("files", "capi-linode.yaml"), files, p.getTemplateValues(values), false)
+	return capiYaml.ConstructFile(filePath, "files/capi-linode.yaml", files, p.getTemplateValues(values), false)
 }
 
 func (p *Infrastructure) GenerateCapiMachine(ctx context.Context, values *types.Values) (*capiYaml.InitFile, error) {
 	filePath := filepath.Join(values.BootstrapManifestDir, "capi-pivot-machine.yaml")
-	return capiYaml.ConstructFile(filePath, filepath.Join("files", "capi-pivot-machine.yaml"), files, p.getTemplateValues(values), false)
+	return capiYaml.ConstructFile(filePath, "files/capi-pivot-machine.yaml", files, p.getTemplateValues(values), false)
 }
 
 func (p *Infrastructure) GenerateAdditionalFiles(ctx context.Context, values *types.Values) ([]capiYaml.InitFile, error) {

@@ -3,6 +3,7 @@ package yaml
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -14,6 +15,10 @@ import (
 )
 
 func TestConstructFile(t *testing.T) {
+	notFound := "error reading file: open wrong-tmpfile: no such file or directory"
+	if runtime.GOOS == "windows" {
+		notFound = "error reading file: open wrong-tmpfile: The system cannot find the file specified."
+	}
 	type test struct {
 		name       string
 		input      types.Values
@@ -85,7 +90,7 @@ spec:
 			name:      "err invalid file",
 			input:     types.Values{ClusterName: "test-cluster"},
 			localPath: "wrong-tmpfile",
-			wantErr:   "error reading file: open wrong-tmpfile: no such file or directory",
+			wantErr:   notFound,
 		},
 		{
 			name:      "err invalid parsed template",

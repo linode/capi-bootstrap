@@ -242,7 +242,8 @@ k3s kubectl patch cluster test-cluster --type=json -p '[{"op": "replace", "path"
 			t.Parallel()
 			ctx := context.Background()
 			controlPlane := ControlPlane{}
-			actual, _ := controlPlane.GenerateInitScript(ctx, "/tmp/initScript.sh", &tc.input)
+			actual, err := controlPlane.GenerateInitScript(ctx, "/tmp/initScript.sh", &tc.input)
+			assert.NoError(t, err)
 			assert.Equal(t, tc.want.Path, actual.Path, "expected file path: %s", tc.want.Path)
 			assert.Equal(t, tc.want.Content, actual.Content, "expected file contents: %s", tc.want.Content)
 		})
