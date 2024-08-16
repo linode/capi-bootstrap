@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"net"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/linode/cluster-api-provider-linode/api/v1alpha1"
@@ -25,7 +27,7 @@ func TestCAPL_GenerateCapiFile(t *testing.T) {
 		want  *capiYaml.InitFile
 	}
 	expectedCapiFile := capiYaml.InitFile{
-		Path: "/test-manifests/capi-linode.yaml",
+		Path: string(os.PathSeparator) + filepath.Join("test-manifests", "capi-linode.yaml"),
 		Content: `---
 apiVersion: v1
 kind: Namespace
@@ -65,7 +67,8 @@ spec:
 				Token: "test-token",
 			}
 
-			actual, _ := Infra.GenerateCapiFile(ctx, &tc.input)
+			actual, err := Infra.GenerateCapiFile(ctx, &tc.input)
+			assert.NoError(t, err)
 			assert.Equal(t, tc.want.Path, actual.Path, "expected file path: %s", tc.want.Path)
 			assert.Equal(t, tc.want.Content, actual.Content, "expected file contents: %s", tc.want.Content)
 		})
@@ -79,7 +82,7 @@ func TestCAPL_GenerateCapiMachine(t *testing.T) {
 		want  *capiYaml.InitFile
 	}
 	expectedCapiPivotFile := capiYaml.InitFile{
-		Path: "/test-manifests/capi-pivot-machine.yaml",
+		Path: string(os.PathSeparator) + filepath.Join("test-manifests", "capi-pivot-machine.yaml"),
 		Content: `---
 apiVersion: cluster.x-k8s.io/v1beta1
 kind: Machine
@@ -127,7 +130,8 @@ spec:
 			t.Parallel()
 			ctx := context.Background()
 			Infra := Infrastructure{}
-			actual, _ := Infra.GenerateCapiMachine(ctx, &tc.input)
+			actual, err := Infra.GenerateCapiMachine(ctx, &tc.input)
+			assert.NoError(t, err)
 			assert.Equal(t, tc.want.Path, actual.Path, "expected file path: %s", tc.want.Path)
 			assert.Equal(t, tc.want.Content, actual.Content, "expected file contents: %s", tc.want.Content)
 		})

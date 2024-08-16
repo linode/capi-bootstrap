@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"net"
 	"path"
-	"path/filepath"
 	"strings"
 
 	"github.com/google/uuid"
@@ -47,7 +46,7 @@ func NewControlPlane() *ControlPlane {
 
 func (p *ControlPlane) GenerateCapiFile(_ context.Context, values *types.Values) (*capiYaml.InitFile, error) {
 	filePath := "/var/lib/rancher/k3s/server/manifests/capi-k3s.yaml"
-	return capiYaml.ConstructFile(filePath, filepath.Join("files", "capi-k3s.yaml"), files, values, false)
+	return capiYaml.ConstructFile(filePath, "files/capi-k3s.yaml", files, values, false)
 }
 
 func (p *ControlPlane) GenerateAdditionalFiles(_ context.Context, values *types.Values) ([]capiYaml.InitFile, error) {
@@ -130,7 +129,7 @@ func (p *ControlPlane) GenerateRunCommand(_ context.Context, values *types.Value
 }
 
 func (p *ControlPlane) GenerateInitScript(_ context.Context, initScriptPath string, values *types.Values) (*capiYaml.InitFile, error) {
-	return capiYaml.ConstructFile(initScriptPath, filepath.Join("files", "init-cluster.sh"), files, values, false)
+	return capiYaml.ConstructFile(initScriptPath, "files/init-cluster.sh", files, values, false)
 }
 
 func GetControlPlaneDef(manifests []string) *capK3s.KThreesControlPlane {
