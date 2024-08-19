@@ -10,11 +10,10 @@
 package mock_infrastructure
 
 import (
-	context "context"
-	reflect "reflect"
-
 	types "capi-bootstrap/types"
 	yaml "capi-bootstrap/yaml"
+	context "context"
+	reflect "reflect"
 
 	gomock "go.uber.org/mock/gomock"
 )

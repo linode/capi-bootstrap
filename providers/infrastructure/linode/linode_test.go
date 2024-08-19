@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/linode/cluster-api-provider-linode/api/v1alpha1"
+	"github.com/linode/cluster-api-provider-linode/api/v1alpha2"
 	"github.com/linode/linodego"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
@@ -49,7 +49,7 @@ metadata:
   name: linode
   namespace: capl-system
 spec:
-  version: v0.5.0
+  version: v0.6.0
   fetchConfig:
     url: https://github.com/linode/cluster-api-provider-linode/releases/latest/infrastructure-components.yaml
   configSecret:
@@ -97,7 +97,7 @@ spec:
   bootstrap:
     dataSecretName: linode-test-cluster-crs-0
   infrastructureRef:
-    apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
+    apiVersion: infrastructure.cluster.x-k8s.io/v1alpha2
     kind: LinodeMachine
     name: "test-cluster-bootstrap"
     namespace: default
@@ -105,7 +105,7 @@ spec:
   providerID: linode://{{ ds.meta_data.id }}
   version: "1.30.0"
 ---
-apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha2
 kind: LinodeMachine
 metadata:
   labels:
@@ -218,7 +218,7 @@ stringData:
 `,
 	}}
 	tests := []test{
-		{name: "success vpc", infra: &Infrastructure{Token: "test-token", VPC: &v1alpha1.LinodeVPC{}}, input: types.Values{ClusterName: "test-cluster", K8sVersion: "1.30.0", BootstrapManifestDir: "/test-manifests/"}, want: expectedVPCFile},
+		{name: "success vpc", infra: &Infrastructure{Token: "test-token", VPC: &v1alpha2.LinodeVPC{}}, input: types.Values{ClusterName: "test-cluster", K8sVersion: "1.30.0", BootstrapManifestDir: "/test-manifests/"}, want: expectedVPCFile},
 		{name: "success no vpc", infra: &Infrastructure{Token: "test-token"}, input: types.Values{ClusterName: "test-cluster", K8sVersion: "1.30.0", BootstrapManifestDir: "/test-manifests/"}, want: expectedVPCLessFile},
 	}
 	for _, tc := range tests {
@@ -271,7 +271,7 @@ func TestCAPL_PreDeploy(t *testing.T) {
 		mockClient func(ctx context.Context, t *testing.T, mock *mockClient.MockLinodeClient) *mockClient.MockLinodeClient
 	}
 	manifests := []string{`---
-apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha2
 kind: LinodeMachineTemplate
 metadata:
   name: test-cluster-control-plane
@@ -285,7 +285,7 @@ spec:
       region: us-mia
       type: g6-standard-4`,
 		`---
-apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha2
 kind: LinodeVPC
 metadata:
   labels:
@@ -502,22 +502,22 @@ func TestCAPL_Deploy(t *testing.T) {
 			ctx := context.Background()
 			Infra := Infrastructure{
 				Client: tc.mockClient(ctx, t, mock),
-				Machine: &v1alpha1.LinodeMachineTemplate{
-					Spec: v1alpha1.LinodeMachineTemplateSpec{
-						Template: v1alpha1.LinodeMachineTemplateResource{Spec: v1alpha1.LinodeMachineSpec{
+				Machine: &v1alpha2.LinodeMachineTemplate{
+					Spec: v1alpha2.LinodeMachineTemplateSpec{
+						Template: v1alpha2.LinodeMachineTemplateResource{Spec: v1alpha2.LinodeMachineSpec{
 							Image:  "linode/ubuntu",
 							Region: "us-mia",
 							Type:   "nanode",
 						}},
 					},
 				},
-				VPC: &v1alpha1.LinodeVPC{
+				VPC: &v1alpha2.LinodeVPC{
 					ObjectMeta: v1.ObjectMeta{Name: "test-cluster"},
-					Spec: v1alpha1.LinodeVPCSpec{
+					Spec: v1alpha2.LinodeVPCSpec{
 						VPCID:       ptr.To(987),
 						Description: "",
 						Region:      "us-mia",
-						Subnets: []v1alpha1.VPCSubnetCreateOptions{{
+						Subnets: []v1alpha2.VPCSubnetCreateOptions{{
 							Label: "pod network",
 							IPv4:  "10.0.0.0/8",
 						}},
@@ -752,7 +752,7 @@ func TestCAPL_UpdateManifests(t *testing.T) {
 		want  []string
 	}
 	manifests := []string{`---
-apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha2
 kind: LinodeMachineTemplate
 metadata:
   name: test-vpc-k3s-control-plane
@@ -776,12 +776,12 @@ spec:
     name: test-vpc-k3s-credentials
   region: us-mia
   vpcRef:
-    apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
+    apiVersion: infrastructure.cluster.x-k8s.io/v1alpha2
     kind: LinodeVPC
     name: test-vpc-k3s
 `}
 	expectedManifests := []string{`---
-apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha2
 kind: LinodeMachineTemplate
 metadata:
   name: test-vpc-k3s-control-plane
@@ -805,7 +805,7 @@ spec:
     name: test-vpc-k3s-credentials
   region: us-mia
   vpcRef:
-    apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
+    apiVersion: infrastructure.cluster.x-k8s.io/v1alpha2
     kind: LinodeVPC
     name: test-vpc-k3s
   controlPlaneEndpoint:

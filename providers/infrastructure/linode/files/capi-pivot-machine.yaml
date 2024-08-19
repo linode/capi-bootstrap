@@ -12,7 +12,7 @@ spec:
   bootstrap:
     dataSecretName: linode-[[[ .ClusterName ]]]-crs-0
   infrastructureRef:
-    apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
+    apiVersion: infrastructure.cluster.x-k8s.io/v1alpha2
     kind: LinodeMachine
     name: "[[[ .ClusterName ]]]-bootstrap"
     namespace: default
@@ -20,7 +20,7 @@ spec:
   providerID: linode://{{ ds.meta_data.id }}
   version: "[[[ .K8sVersion ]]]"
 ---
-apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
+apiVersion: infrastructure.cluster.x-k8s.io/v1alpha2
 kind: LinodeMachine
 metadata:
   labels:

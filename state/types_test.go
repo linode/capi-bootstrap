@@ -25,7 +25,7 @@ ControlPlane:
 Infrastructure:
   AuthorizedKeys: 
   Machine:
-    apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
+    apiVersion: infrastructure.cluster.x-k8s.io/v1alpha2
     kind: LinodeMachineTemplate
     metadata:
       creationTimestamp: null
@@ -85,7 +85,7 @@ Infrastructure:
     stickiness: none
   Token: linodetoken
   VPC:
-    apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
+    apiVersion: infrastructure.cluster.x-k8s.io/v1alpha2
     kind: LinodeVPC
     metadata:
       creationTimestamp: null

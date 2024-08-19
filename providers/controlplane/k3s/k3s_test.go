@@ -128,10 +128,11 @@ token: test-token
 
 func TestK3s_PreDeploy(t *testing.T) {
 	type test struct {
-		name    string
-		input   types.Values
-		want    types.Values
-		wantErr string
+		name         string
+		input        types.Values
+		want         types.Values
+		wantEndpoint string
+		wantErr      string
 	}
 	manifests := []string{`---
 apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
@@ -169,10 +170,11 @@ spec:
   version: v1.29.5+k3s1
 `}
 	tests := []test{
-		{name: "success", input: types.Values{Manifests: manifests}, want: types.Values{
+		{name: "success", input: types.Values{Manifests: manifests, ClusterEndpoint: "api-server.test.com"}, want: types.Values{
 			BootstrapManifestDir: "/var/lib/rancher/k3s/server/manifests/",
 			K8sVersion:           "v1.29.5+k3s1",
-		}},
+		},
+			wantEndpoint: "https://api-server.test.com:6443"},
 		{name: "err cp not found", input: types.Values{}, want: types.Values{}, wantErr: "control plane not found"},
 	}
 	for _, tc := range tests {
@@ -189,8 +191,9 @@ spec:
 			if tc.wantErr != "" {
 				assert.EqualErrorf(t, err, tc.wantErr, "expected error message: %s", tc.wantErr)
 			} else {
-				assert.Equalf(t, tc.input.K8sVersion, tc.want.K8sVersion, "expected manifest: %v", tc.want.K8sVersion)
-				assert.Equalf(t, tc.input.BootstrapManifestDir, tc.want.BootstrapManifestDir, "expected manifest: %v", tc.want.BootstrapManifestDir)
+				assert.Equalf(t, tc.wantEndpoint, tc.input.Kubeconfig.Clusters[0].Cluster.Server, "expected Server: %v", tc.wantEndpoint)
+				assert.Equalf(t, tc.want.K8sVersion, tc.input.K8sVersion, "expected manifest: %v", tc.want.K8sVersion)
+				assert.Equalf(t, tc.want.BootstrapManifestDir, tc.input.BootstrapManifestDir, "expected manifest: %v", tc.want.BootstrapManifestDir)
 			}
 		})
 	}

@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 
 	"github.com/google/uuid"
-	"github.com/linode/cluster-api-provider-linode/api/v1alpha1"
 	"github.com/linode/cluster-api-provider-linode/api/v1alpha2"
 	"github.com/linode/linodego"
 	"k8s.io/klog/v2"
@@ -38,13 +37,13 @@ type LinodeClient interface {
 
 type Infrastructure struct {
 	Name               string
-	Client             LinodeClient `json:"-"`
-	Machine            *v1alpha1.LinodeMachineTemplate
-	NodeBalancer       *linodego.NodeBalancer
-	NodeBalancerConfig *linodego.NodeBalancerConfig
+	Client             LinodeClient                    `json:"-"`
+	Machine            *v1alpha2.LinodeMachineTemplate `json:"-"`
+	NodeBalancer       *linodego.NodeBalancer          `json:"-"`
+	NodeBalancerConfig *linodego.NodeBalancerConfig    `json:"-"`
 	Token              string
 	AuthorizedKeys     string
-	VPC                *v1alpha1.LinodeVPC
+	VPC                *v1alpha2.LinodeVPC `json:"-"`
 }
 
 func NewInfrastructure() *Infrastructure {
@@ -310,8 +309,8 @@ func (p *Infrastructure) Delete(ctx context.Context, values *types.Values, force
 	return nil
 }
 
-func GetLinodeMachineDef(manifests []string) *v1alpha1.LinodeMachineTemplate {
-	var template v1alpha1.LinodeMachineTemplate
+func GetLinodeMachineDef(manifests []string) *v1alpha2.LinodeMachineTemplate {
+	var template v1alpha2.LinodeMachineTemplate
 	for _, manifest := range manifests {
 		_ = yaml.Unmarshal([]byte(manifest), &template)
 		if template.Kind == "LinodeMachineTemplate" {
@@ -352,8 +351,8 @@ func (p *Infrastructure) UpdateManifests(ctx context.Context, manifests []string
 	return nil
 }
 
-func GetVPCRef(manifests []string) *v1alpha1.LinodeVPC {
-	var vpc v1alpha1.LinodeVPC
+func GetVPCRef(manifests []string) *v1alpha2.LinodeVPC {
+	var vpc v1alpha2.LinodeVPC
 	for _, manifest := range manifests {
 		_ = yaml.Unmarshal([]byte(manifest), &vpc)
 		if vpc.Kind == "LinodeVPC" {
