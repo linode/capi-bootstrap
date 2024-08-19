@@ -307,7 +307,7 @@ func (b *Backend) writeFile(ctx context.Context, clusterName string, cloudInitFi
 	}
 	remotePath := path.Join("clusters", clusterName, "files", cloudInitFile.Path)
 
-	downloadUrl, err := b.uploadFile(ctx, cloudInitFile.Content, remotePath, clusterName)
+	downloadURL, err := b.uploadFile(ctx, cloudInitFile.Content, remotePath, clusterName)
 	if err != nil {
 		return "", nil, fmt.Errorf("couldn't upload object: %v", err)
 	}
@@ -315,7 +315,7 @@ func (b *Backend) writeFile(ctx context.Context, clusterName string, cloudInitFi
 	cloudInitFile.Content = ""
 	klog.V(4).Infof("[github backend] updated existing state file %s for cluster %s in remote repo %s/%s", remotePath, clusterName, b.Org, b.Repo)
 
-	downloadCmd := fmt.Sprintf("curl -sL -H 'Accept: application/vnd.github.raw+json' -H 'Authorization: Bearer %s' -H 'X-GitHub-Api-Version: 2022-11-28' '%s' | xargs -0 cloud-init query -f > %s", b.Token, downloadUrl, cloudInitFile.Path)
+	downloadCmd := fmt.Sprintf("curl -sL -H 'Accept: application/vnd.github.raw+json' -H 'Authorization: Bearer %s' -H 'X-GitHub-Api-Version: 2022-11-28' '%s' | xargs -0 cloud-init query -f > %s", b.Token, downloadURL, cloudInitFile.Path)
 	return downloadCmd, &cloudInitFile, nil
 }
 
