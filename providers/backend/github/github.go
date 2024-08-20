@@ -22,11 +22,7 @@ import (
 	capiYaml "capi-bootstrap/yaml"
 )
 
-const (
-	defaultRepoName   = "capi-bootstrap"
-	defaultOrgName    = "linode"
-	defaultBranchName = "main"
-)
+const defaultBranchName = "main"
 
 func NewBackend() *Backend {
 	return &Backend{
@@ -64,13 +60,11 @@ func (b *Backend) PreCmd(ctx context.Context, clusterName string) error {
 
 	klog.V(4).Infof("[github backend] opts: %+v", b)
 	if b.Org == "" {
-		klog.Infof("GITHUB_ORG is not set, defaulting to %s", defaultOrgName)
-		b.Org = defaultOrgName
+		return errors.New("GITHUB_ORG is required")
 	}
 
 	if b.Repo == "" {
-		klog.Infof("GITHUB_REPO is not set, defaulting to %s", defaultRepoName)
-		b.Repo = defaultRepoName
+		return errors.New("GITHUB_REPO is required")
 	}
 
 	if b.branchName == "" {
