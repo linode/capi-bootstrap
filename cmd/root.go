@@ -32,4 +32,6 @@ func Execute(version, commit, date string) {
 
 func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $XDG_HOME_CONFIG/.capi-bootstrap.yaml)")
+	rootCmd.PersistentFlags().StringVar(&clusterOpts.backend, "backend", "file",
+		"The backend provider to use with "+AppName)
 }

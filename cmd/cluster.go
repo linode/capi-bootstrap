@@ -22,14 +22,9 @@ import (
 // clusterCmd represents the cluster command.
 var clusterCmd = &cobra.Command{
 	Use:   "cluster",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	RunE: runBootstrapCluster,
+	Short: "",
+	Long:  ``,
+	RunE:  runBootstrapCluster,
 }
 
 type clusterOptions struct {
@@ -87,7 +82,16 @@ func runBootstrapCluster(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 	manifestFileName := filepath.Base(manifestFile)
-	values := &types.Values{ManifestFile: manifestFileName}
+	values := &types.Values{
+		ManifestFile: manifestFileName,
+	}
+	if os.Getenv("AUTHORIZED_KEYS") != "" {
+		keys := os.Getenv("AUTHORIZED_KEYS")
+		values.SSHAuthorizedKeys = strings.Split(keys, ",")
+		klog.V(4).Infof("using ssh public key(s) %s", values.SSHAuthorizedKeys)
+	} else {
+		klog.V(4).Infof("no ssh public key(s) were specified")
+	}
 	values.ManifestFS = os.DirFS(filepath.Dir(manifestFile))
 	if manifestFileName == "-" {
 		values.ManifestFS = cloudinit.IoFS{Reader: cmd.InOrStdin()}

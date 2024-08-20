@@ -9,7 +9,7 @@ Note: Using devbox will install necessary requirements to build/run this project
 
 ## Getting started
 Note: if you are using devbox, enter into a shell using `devbox shell` before running these commands to use its integration.
-1. Build `clusterct-bootstrap`
+1. Build `clusterctl-bootstrap`
     ```shell
     make all
     ```

@@ -18,6 +18,8 @@ type Values struct {
 	Kubeconfig *v1.Config `json:"-"`
 	// K8sVersion is the version parsed from the providers.ControlPlane
 	K8sVersion string
+	// SSHAuthorizedKeys will pass a list of ssh public keys to a controlplane provider
+	SSHAuthorizedKeys []string
 	// ClusterKind is the Kind of infrastructure.cluster.x-k8s.io used for this cluster
 	ClusterKind string
 	// ClusterEndpoint is the IP address or hostname to be used to access the kubernetes cluster
@@ -30,4 +32,17 @@ type Values struct {
 	BootstrapManifestDir string
 	// Manifests is the separated list of all manifests parsed from the ManifestFile
 	Manifests []string `json:"-"`
+}
+
+type ClusterInfo struct {
+	Name  string
+	Nodes []*NodeInfo
+}
+
+type NodeInfo struct {
+	Name              string
+	Status            string
+	Version           string
+	ExternalIP        string
+	DaysSinceCreation string
 }
