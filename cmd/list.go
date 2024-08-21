@@ -5,10 +5,11 @@ import (
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
-	"k8s.io/klog/v2"
 
 	"capi-bootstrap/providers/backend"
+	"capi-bootstrap/types"
 	"capi-bootstrap/utils"
+	capiYaml "capi-bootstrap/yaml"
 )
 
 // listCmd represents the list command.
@@ -16,34 +17,39 @@ var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "list clusters",
 	Long:  `list clusters and nodes using config stored in a backend provider`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		if len(args) < 1 {
-			args = []string{"main"}
-			klog.Warningf("a branch name was not supplied via args, defaulting to main")
-		}
-		err := runListCluster(cmd, args[0])
-		if err != nil {
-			return err
-		}
-		return nil
-	},
+	RunE:  runListCluster,
 }
 
 func init() {
 	rootCmd.AddCommand(listCmd)
 }
 
-func runListCluster(cmd *cobra.Command, branchName string) error {
+func runListCluster(cmd *cobra.Command, _ []string) error {
 	ctx := cmd.Context()
 
 	backendProvider := backend.NewProvider(clusterOpts.backend)
-	if err := backendProvider.PreCmd(ctx, branchName); err != nil {
+	if err := backendProvider.PreCmd(ctx, ""); err != nil {
 		return err
 	}
 
-	clusters, err := backendProvider.ListClusters(ctx)
+	clusterConfigs, err := backendProvider.ListClusters(ctx)
 	if err != nil {
 		return err
+	}
+	clusters := make([]types.ClusterInfo, 0, len(clusterConfigs))
+	for name, conf := range clusterConfigs {
+		kubeconfig, err := capiYaml.Marshal(conf)
+		if err != nil {
+			return err
+		}
+		list, err := utils.BuildNodeInfoList(ctx, kubeconfig)
+		if err != nil {
+			return err
+		}
+		clusters = append(clusters, types.ClusterInfo{
+			Name:  name,
+			Nodes: list,
+		})
 	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 8, 1, '\t', 0)
