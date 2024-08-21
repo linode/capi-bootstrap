@@ -122,6 +122,9 @@ func runBootstrapCluster(cmd *cobra.Command, _ []string) error {
 	values.ClusterKind = clusterSpec.Spec.InfrastructureRef.Kind
 
 	backendProvider := backend.NewProvider(clusterOpts.backend)
+	if backendProvider == nil {
+		return errors.New("backend provider not specified, options are: " + strings.Join(backend.ListProviders(), ", "))
+	}
 	if err := backendProvider.PreCmd(ctx, values.ClusterName); err != nil {
 		return err
 	}

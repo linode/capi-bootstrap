@@ -12,8 +12,8 @@ import (
 
 func TestNewState(t *testing.T) {
 	rawExt := `Backend:
-  BasePath: /Users/user/cluster-api/bootstrap
-  Name: file
+  Region: us-mia-1
+  Name: s3 
 ControlPlane:
   AgentConfig:
     nodeName: node
@@ -136,7 +136,7 @@ Values:
 	assert.Equal(t, config, state.config)
 	assert.Equal(t, "*k3s.ControlPlane", reflect.TypeOf(state.ControlPlane).String())
 	assert.Equal(t, "*linode.Infrastructure", reflect.TypeOf(state.Infrastructure).String())
-	assert.Equal(t, "*file.Backend", reflect.TypeOf(state.Backend).String())
+	assert.Equal(t, "*s3.Backend", reflect.TypeOf(state.Backend).String())
 
 	// adds state to extension
 	c, err := state.ToConfig()

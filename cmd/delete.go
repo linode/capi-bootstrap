@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"errors"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -40,6 +41,9 @@ func runDeleteCluster(cmd *cobra.Command, clusterName string) error {
 	ctx := cmd.Context()
 
 	backendProvider := backend.NewProvider(clusterOpts.backend)
+	if backendProvider == nil {
+		return errors.New("backend provider not specified, options are: " + strings.Join(backend.ListProviders(), ","))
+	}
 	if err := backendProvider.PreCmd(ctx, clusterName); err != nil {
 		return err
 	}

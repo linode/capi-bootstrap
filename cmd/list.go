@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"errors"
 	"os"
+	"strings"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -28,6 +30,9 @@ func runListCluster(cmd *cobra.Command, _ []string) error {
 	ctx := cmd.Context()
 
 	backendProvider := backend.NewProvider(clusterOpts.backend)
+	if backendProvider == nil {
+		return errors.New("backend provider not specified, options are: " + strings.Join(backend.ListProviders(), ","))
+	}
 	if err := backendProvider.PreCmd(ctx, ""); err != nil {
 		return err
 	}

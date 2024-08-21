@@ -5,7 +5,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"capi-bootstrap/providers/backend/file"
 	"capi-bootstrap/providers/backend/s3"
 )
 
@@ -16,10 +15,10 @@ func TestNewProvider(t *testing.T) {
 		want  Provider
 	}
 	tests := []test{
-		{name: "file", input: "file", want: file.NewBackend()},
+		{name: "file", input: "file", want: nil},
 		{name: "s3", input: "s3", want: s3.NewBackend()},
-		{name: "not matching name", input: "wrong", want: file.NewBackend()},
-		{name: "no name", input: "", want: file.NewBackend()},
+		{name: "not matching name", input: "wrong", want: nil},
+		{name: "no name", input: "", want: nil},
 	}
 	for _, tc := range tests {
 		actual := NewProvider(tc.input)
