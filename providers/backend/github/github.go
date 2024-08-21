@@ -17,8 +17,6 @@ import (
 	"k8s.io/klog/v2"
 	k8syaml "sigs.k8s.io/yaml"
 
-	"capi-bootstrap/types"
-	"capi-bootstrap/utils"
 	capiYaml "capi-bootstrap/yaml"
 )
 
@@ -177,7 +175,7 @@ func (b *Backend) Delete(ctx context.Context, clusterName string) error {
 		},
 		Parents: b.branch.GetCommit().Parents,
 		Message: PointerTo(fmt.Sprintf("deleting state files for cluster %s", clusterName)),
-		//Verification: nil, // TODO sign commits
+		// Verification: nil, // TODO sign commits
 	}
 
 	newCommit, _, err := b.client.Git.CreateCommit(ctx, b.Org, b.Repo, commit, &github.CreateCommitOptions{})
@@ -202,7 +200,7 @@ func (b *Backend) Delete(ctx context.Context, clusterName string) error {
 	return nil
 }
 
-func (b *Backend) ListClusters(ctx context.Context) ([]types.ClusterInfo, error) {
+func (b *Backend) ListClusters(ctx context.Context) (map[string]*v1.Config, error) {
 	_, clusterConfigs, _, err := b.client.Repositories.GetContents(ctx, b.Org, b.Repo, "clusters", &github.RepositoryContentGetOptions{
 		Ref: b.branchName,
 	})
@@ -243,23 +241,7 @@ func (b *Backend) ListClusters(ctx context.Context) ([]types.ClusterInfo, error)
 		b.clusters[*cluster.Name] = config
 	}
 
-	clusters := make([]types.ClusterInfo, len(b.clusters))
-	for name, conf := range b.clusters {
-		kubeconfig, err := capiYaml.Marshal(conf)
-		if err != nil {
-			return nil, err
-		}
-		list, err := utils.BuildNodeInfoList(ctx, kubeconfig)
-		if err != nil {
-			return nil, err
-		}
-		clusters = append(clusters, types.ClusterInfo{
-			Name:  name,
-			Nodes: list,
-		})
-	}
-
-	return clusters, nil
+	return b.clusters, nil
 }
 
 func (b *Backend) WriteConfig(ctx context.Context, clusterName string, config *v1.Config) error {

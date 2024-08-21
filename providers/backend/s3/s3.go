@@ -9,16 +9,18 @@ import (
 	"io"
 	"os"
 	"path"
+	"strings"
 	"time"
 
 	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	s3types "github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/aws/smithy-go"
 	v1 "k8s.io/client-go/tools/clientcmd/api/v1"
+	"k8s.io/utils/ptr"
 	k8syaml "sigs.k8s.io/yaml"
 
-	"capi-bootstrap/types"
 	capiYaml "capi-bootstrap/yaml"
 )
 
@@ -88,10 +90,11 @@ func (b *Backend) Read(ctx context.Context, clusterName string) (*v1.Config, err
 		Key:    &filePath,
 	})
 	if err != nil {
+		var apiErr smithy.APIError
+		if errors.As(err, &apiErr) && apiErr.ErrorCode() == "NoSuchKey" {
+			return nil, fmt.Errorf("couldn't find object: %s", filePath)
+		}
 		return nil, fmt.Errorf("couldn't download object: %v", err)
-	}
-	if remoteFile == nil {
-		return nil, fmt.Errorf("couldn't find object: %s", filePath)
 	}
 	defer func(Body io.ReadCloser) {
 		err = Body.Close()
@@ -170,8 +173,25 @@ func (b *Backend) uploadFile(ctx context.Context, fileContent string, filePath s
 	return err
 }
 
-func (b *Backend) ListClusters(_ context.Context) ([]types.ClusterInfo, error) {
-	return nil, errors.New("[s3 backend] ListClusters not implemented")
+func (b *Backend) ListClusters(ctx context.Context) (map[string]*v1.Config, error) {
+	clusterNames, err := b.Client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+		Bucket:    &b.BucketName,
+		Prefix:    ptr.To("clusters/"),
+		Delimiter: ptr.To("/"),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("couldn't list clusters: %v", err)
+	}
+	clusters := map[string]*v1.Config{}
+	for _, cluster := range clusterNames.CommonPrefixes {
+		clusterName := strings.Split(*cluster.Prefix, "/")[1]
+		clusterConfig, err := b.Read(ctx, clusterName)
+		if err != nil {
+			return nil, fmt.Errorf("couldn't read cluster config: %v", err)
+		}
+		clusters[clusterName] = clusterConfig
+	}
+	return clusters, nil
 }
 
 func (b *Backend) WriteFiles(ctx context.Context, clusterName string, cloudInitConfig *capiYaml.Config) ([]string, error) {

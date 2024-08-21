@@ -27,7 +27,7 @@ func BuildNodeInfoList(ctx context.Context, kubeconfig []byte) ([]*types.NodeInf
 	if err != nil {
 		return nil, err
 	}
-	nodeInfoList := make([]*types.NodeInfo, len(nodeList.Items))
+	nodeInfoList := make([]*types.NodeInfo, 0, len(nodeList.Items))
 
 	for _, node := range nodeList.Items {
 		var status string
@@ -84,6 +84,9 @@ func TabWriteClusters(w io.Writer, clusters []types.ClusterInfo) error {
 			return err
 		}
 		for _, node := range cluster.Nodes {
+			if node == nil {
+				continue
+			}
 			numBytes, err = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", node.Name, node.Status,
 				node.Version, node.ExternalIP, node.DaysSinceCreation)
 			if err != nil || numBytes == 0 {

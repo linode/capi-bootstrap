@@ -10,6 +10,7 @@ import (
 	v4 "github.com/aws/aws-sdk-go-v2/aws/signer/v4"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	s3Types "github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/aws/smithy-go"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/mock/gomock"
 	v1 "k8s.io/client-go/tools/clientcmd/api/v1"
@@ -128,9 +129,10 @@ clusters:
 			bucketName:  "test-bucket",
 			clusterName: "test-cluster",
 			mockClient: func(ctx context.Context, t *testing.T, mock *mockClient.MockS3Client) *mockClient.MockS3Client {
+				err := smithy.GenericAPIError{Code: "NoSuchKey"}
 				mock.EXPECT().
 					GetObject(ctx, gomock.Any()).
-					Return(nil, nil)
+					Return(nil, &err)
 				return mock
 			},
 			wantErr: "couldn't find object: clusters/test-cluster/kubeconfig.yaml",
@@ -449,6 +451,121 @@ func TestS3_Delete(t *testing.T) {
 				assert.EqualErrorf(t, err, tc.wantErr, "expected error message: %s", tc.wantErr)
 			} else {
 				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestS3_List(t *testing.T) {
+	type test struct {
+		name        string
+		bucketName  string
+		clusterName string
+		want        v1.Config
+		wantErr     string
+		mockClient  func(ctx context.Context, t *testing.T, mock *mockClient.MockS3Client) *mockClient.MockS3Client
+	}
+	tests := []test{
+		{
+			name:        "success",
+			bucketName:  "test-bucket",
+			clusterName: "test-cluster",
+			mockClient: func(ctx context.Context, t *testing.T, mock *mockClient.MockS3Client) *mockClient.MockS3Client {
+				mock.EXPECT().
+					ListObjectsV2(ctx, gomock.Cond(func(x any) bool {
+						assert.Equal(t, `test-bucket`, *x.(*s3.ListObjectsV2Input).Bucket)
+						assert.Equal(t, `clusters/`, *x.(*s3.ListObjectsV2Input).Prefix)
+						assert.Equal(t, `/`, *x.(*s3.ListObjectsV2Input).Delimiter)
+						return true
+					})).
+					Return(&s3.ListObjectsV2Output{
+						CommonPrefixes: []s3Types.CommonPrefix{{Prefix: ptr.To("clusters/test-cluster/")}},
+						KeyCount:       ptr.To(int32(2)),
+						Contents: []s3Types.Object{{
+							Key: ptr.To("clusters/test-cluster/file1.yaml"),
+						},
+							{
+								Key: ptr.To("clusters/test-cluster/file2.yaml"),
+							}},
+					}, nil)
+				mock.EXPECT().
+					GetObject(ctx, gomock.Cond(func(x any) bool {
+						assert.Equal(t, "test-bucket", *x.(*s3.GetObjectInput).Bucket)
+						assert.Equal(t, "clusters/test-cluster/kubeconfig.yaml", *x.(*s3.GetObjectInput).Key)
+						return true
+					})).
+					Return(&s3.GetObjectOutput{
+						Body: io.NopCloser(bytes.NewReader([]byte(`---
+clusters:
+- cluster:
+   server: https://123.456.789:6443
+  name: test-cluster
+`))),
+					}, nil)
+				return mock
+			},
+			want: v1.Config{
+				Clusters: []v1.NamedCluster{{
+					Name: "test-cluster",
+					Cluster: v1.Cluster{
+						Server: "https://123.456.789:6443",
+					},
+				}},
+			},
+		},
+		{
+			name:        "err get configs",
+			bucketName:  "test-bucket",
+			clusterName: "test-cluster",
+			mockClient: func(ctx context.Context, t *testing.T, mock *mockClient.MockS3Client) *mockClient.MockS3Client {
+				mock.EXPECT().
+					ListObjectsV2(ctx, gomock.Any()).
+					Return(&s3.ListObjectsV2Output{
+						CommonPrefixes: []s3Types.CommonPrefix{{Prefix: ptr.To("clusters/test-cluster/")}},
+						KeyCount:       ptr.To(int32(2)),
+						Contents: []s3Types.Object{{
+							Key: ptr.To("clusters/test-cluster/file1.yaml"),
+						},
+							{
+								Key: ptr.To("clusters/test-cluster/file2.yaml"),
+							}},
+					}, nil)
+				mock.EXPECT().
+					GetObject(ctx, gomock.Any()).
+					Return(nil, errors.New("s3 error"))
+				return mock
+			},
+			wantErr: "couldn't read cluster config: couldn't download object: s3 error",
+		},
+		{
+			name:        "err list clusters",
+			bucketName:  "test-bucket",
+			clusterName: "test-cluster",
+			mockClient: func(ctx context.Context, t *testing.T, mock *mockClient.MockS3Client) *mockClient.MockS3Client {
+				mock.EXPECT().
+					ListObjectsV2(ctx, gomock.Any()).
+					Return(nil, errors.New("s3 error"))
+				return mock
+			},
+			wantErr: "couldn't list clusters: s3 error",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			ctrl := gomock.NewController(t)
+			mock := mockClient.NewMockS3Client(ctrl)
+			ctx := context.Background()
+			testBackend := NewBackend()
+			testBackend.BucketName = tc.bucketName
+			testBackend.Client = tc.mockClient(ctx, t, mock)
+			clusters, err := testBackend.ListClusters(ctx)
+			if tc.wantErr != "" {
+				assert.EqualErrorf(t, err, tc.wantErr, "expected error message: %s", tc.wantErr)
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, clusters["test-cluster"])
+				assert.Equal(t, tc.want.Clusters, clusters["test-cluster"].Clusters)
 			}
 		})
 	}
