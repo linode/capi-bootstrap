@@ -38,6 +38,12 @@ type ControlPlane struct {
 	Certs  secrets.Certificates
 }
 
+var ErrNoCerts = errors.New("missing control plane certs")
+
+func IsErrNoCerts(err error) bool {
+	return err == ErrNoCerts
+}
+
 func NewControlPlane() *ControlPlane {
 	return &ControlPlane{
 		Name: "KThreesControlPlane",
@@ -203,7 +209,7 @@ func (p *ControlPlane) UpdateManifests(_ context.Context, manifests []string, va
 
 func (p *ControlPlane) GetControlPlaneCertSecret(ctx context.Context, values *types.Values) (*capiYaml.InitFile, error) {
 	if p.Certs == nil {
-		return nil, errors.New("missing control plane certs")
+		return nil, ErrNoCerts
 	}
 	certSecrets := v1.SecretList{
 		TypeMeta: metav1.TypeMeta{
@@ -256,7 +262,7 @@ func (p *ControlPlane) GetControlPlaneCertSecret(ctx context.Context, values *ty
 
 func (p *ControlPlane) GetControlPlaneCertFiles(ctx context.Context) ([]capiYaml.InitFile, error) {
 	if p.Certs == nil {
-		return nil, errors.New("missing control plane certs")
+		return nil, ErrNoCerts
 	}
 	k3sFiles := p.Certs.AsFiles()
 	yamlFiles := make([]capiYaml.InitFile, len(k3sFiles))
@@ -274,7 +280,7 @@ func (p *ControlPlane) GetControlPlaneCertFiles(ctx context.Context) ([]capiYaml
 
 func (p *ControlPlane) GetKubeconfig(ctx context.Context, values *types.Values) (*capiYaml.InitFile, error) {
 	if p.Certs == nil {
-		return nil, errors.New("missing control plane certs")
+		return nil, ErrNoCerts
 	}
 
 	kubeconfigBytes, err := yaml.Marshal(values.Kubeconfig)

@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	Linode "capi-bootstrap/providers/infrastructure/linode"
+	"capi-bootstrap/providers/infrastructure/linode"
 )
 
 func TestNewProvider(t *testing.T) {
@@ -15,7 +15,7 @@ func TestNewProvider(t *testing.T) {
 		want  Provider
 	}
 	tests := []test{
-		{name: "linode", input: "LinodeCluster", want: Linode.NewInfrastructure()},
+		{name: "linode", input: "LinodeCluster", want: linode.NewInfrastructure()},
 		{name: "not matching name", input: "wrong", want: nil},
 		{name: "no name", input: "", want: nil},
 	}

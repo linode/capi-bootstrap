@@ -387,6 +387,11 @@ spec:
 			assert.NoError(t, err)
 			assert.Equal(t, secretFile.Path, "/var/lib/rancher/k3s/server/manifests/cp-secrets.yaml")
 			assert.NotNil(t, secretFile.Content)
+
+			// no cert error
+			controlPlane.Certs = nil
+			_, err = controlPlane.GetControlPlaneCertSecret(ctx, &tc.input)
+			assert.True(t, IsErrNoCerts(err))
 		})
 	}
 }
@@ -439,6 +444,11 @@ spec:
 				assert.NotNil(t, secretFile.Path)
 				assert.NotNil(t, secretFile.Content)
 			}
+
+			// no cert error
+			controlPlane.Certs = nil
+			_, err = controlPlane.GetControlPlaneCertFiles(ctx)
+			assert.True(t, IsErrNoCerts(err))
 		})
 	}
 }
@@ -487,6 +497,16 @@ spec:
 			kubeconfig, err := controlPlane.GetKubeconfig(ctx, &tc.input)
 			assert.NoError(t, err)
 			assert.NotNil(t, kubeconfig)
+
+			// test no cert error
+			controlPlane.Certs = nil
+			_, err = controlPlane.GetKubeconfig(ctx, &tc.input)
+			assert.True(t, IsErrNoCerts(err))
 		})
 	}
+}
+
+func TestNewControlPlane(t *testing.T) {
+	k3s := NewControlPlane()
+	assert.Equal(t, k3s.Name, "KThreesControlPlane")
 }
