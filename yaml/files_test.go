@@ -216,7 +216,8 @@ status:
 		{
 			name:  "success",
 			input: manifests,
-			want:  expectedManifests},
+			want:  expectedManifests,
+		},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

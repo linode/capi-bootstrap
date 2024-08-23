@@ -32,6 +32,9 @@ type Values struct {
 	BootstrapManifestDir string
 	// Manifests is the separated list of all manifests parsed from the ManifestFile
 	Manifests []string `json:"-"`
+	// TarWriteFiles specifies whether a single tar files should be constructed for all write_files in order to deliver
+	// reduce file sizes
+	TarWriteFiles bool
 }
 
 type ClusterInfo struct {

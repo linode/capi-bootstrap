@@ -13,7 +13,7 @@ all: clean fmt test vet build
 
 .PHONY: build
 build: $(BUILD_TARGET)
-$(BUILD_TARGET):
+$(BUILD_TARGET): clean-build
 	go build -o $@ main.go
 
 LOCALBIN ?= $(shell pwd)/bin
@@ -38,6 +38,7 @@ generate: mockgen
 	done
 	@$(MOCKGEN) -destination=providers/controlplane/mock/mock_controlplane.go -source=providers/controlplane/types.go
 	@$(MOCKGEN) -destination=providers/infrastructure/mock/mock_types.go -source=providers/infrastructure/types.go
+	@$(MOCKGEN) -destination=providers/backend/mock/mock_types.go -source=providers/backend/types.go
 
 
 .PHONY: quick-build
@@ -66,13 +67,14 @@ $(MOCKGEN): $(LOCALBIN)
 	$(call go-install-tool,$(MOCKGEN),go.uber.org/mock/mockgen,${MOCKGEN_VERSION})
 
 .PHONY: clean
-clean:
-	@rm -f $(BUILD_TARGET)
+clean: clean-build
 	@for tool in $(LOCAL_TOOLS); do \
 		rm -f $${tool} ; \
 	done
 
-
+.PHONY: clean-build
+clean-build:
+	@rm -f $(BUILD_TARGET)
 # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
 # $1 - target path with name of binary (ideally with version)
 # $2 - package url which can be installed
