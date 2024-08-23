@@ -161,46 +161,7 @@ func GenerateCapiManifests(ctx context.Context, values *types.Values, infra infr
 }
 
 func createTar(cloudFiles []capiYaml.InitFile) ([]capiYaml.InitFile, error) {
-	var buf bytes.Buffer
-	gzipWriter := gzip.NewWriter(&buf)
-	defer func(gzipWriter *gzip.Writer) {
-		err := gzipWriter.Close()
-		if err != nil {
-			return
-		}
-	}(gzipWriter)
-	tarWriter := tar.NewWriter(gzipWriter)
-	defer func(tarWriter *tar.Writer) {
-		err := tarWriter.Close()
-		if err != nil {
-			return
-		}
-	}(tarWriter)
-	for _, file := range cloudFiles {
-		header := &tar.Header{
-			Name:    file.Path[1:],
-			Size:    int64(len(file.Content)),
-			ModTime: time.Now(),
-			Mode:    0o644,
-		}
-		if err := tarWriter.WriteHeader(header); err != nil {
-			return nil, err
-		}
-		_, err := io.WriteString(tarWriter, file.Content)
-		if err != nil {
-			return nil, err
-		}
-	}
-	err := tarWriter.Close()
-	if err != nil {
-		return nil, err
-	}
-	err = gzipWriter.Close()
-	if err != nil {
-		return nil, err
-	}
-
-	data, err := io.ReadAll(&buf)
+	data, err := tarFromInitFiles(cloudFiles)
 	if err != nil {
 		return nil, err
 	}
@@ -210,6 +171,44 @@ func createTar(cloudFiles []capiYaml.InitFile) ([]capiYaml.InitFile, error) {
 		Content: string(data),
 	}}
 	return writeFiles, nil
+}
+
+func tarFromInitFiles(files []capiYaml.InitFile) (data []byte, err error) {
+	var buf bytes.Buffer
+	gzipWriter := gzip.NewWriter(&buf)
+	tarWriter := tar.NewWriter(gzipWriter)
+
+	defer func() {
+		err = tarWriter.Close() // close tar writer first
+		if err != nil {
+			return
+		}
+		err = gzipWriter.Close() // close gzip writer second
+		if err != nil {
+			return
+		}
+		data, err = io.ReadAll(&buf) // capture all output
+	}()
+
+	for _, file := range files {
+		header := &tar.Header{
+			Name:    file.Path[1:],
+			Size:    int64(len(file.Content)),
+			ModTime: time.Now(),
+			Mode:    0o644,
+		}
+		err = tarWriter.WriteHeader(header)
+		if err != nil {
+			return data, err
+		}
+
+		_, err = io.WriteString(tarWriter, file.Content)
+		if err != nil {
+			return data, err
+		}
+	}
+
+	return data, err
 }
 
 func UpdateManifest(ctx context.Context, yamlManifest string, infra infrastructure.Provider, controlPlane controlplane.Provider, values *types.Values) ([]byte, *capiYaml.ParsedManifest, error) {

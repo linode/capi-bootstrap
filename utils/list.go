@@ -10,6 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/klog/v2"
 	k8snet "k8s.io/utils/net"
 	"sigs.k8s.io/cluster-api/api/v1beta1"
 
@@ -77,7 +78,7 @@ func BuildNodeInfoList(ctx context.Context, kubeconfig []byte) ([]*types.NodeInf
 
 func TabWriteClusters(w io.Writer, clusters []types.ClusterInfo) error {
 	for _, cluster := range clusters {
-		fmt.Printf("Cluster: %s\n", cluster.Name)
+		klog.Infof("Cluster: %s\n", cluster.Name)
 
 		numBytes, err := fmt.Fprintln(w, "Name\tStatus\tVersion\tExternal IP\tAge")
 		if err != nil || numBytes == 0 {

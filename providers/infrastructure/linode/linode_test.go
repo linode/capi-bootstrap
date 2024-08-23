@@ -20,6 +20,12 @@ import (
 	capiYaml "capi-bootstrap/yaml"
 )
 
+func TestNewInfrastructure(t *testing.T) {
+	inf := NewInfrastructure()
+	assert.NotNil(t, inf)
+	assert.Equal(t, "LinodeCluster", inf.Name)
+}
+
 func TestCAPL_GenerateCapiFile(t *testing.T) {
 	type test struct {
 		name  string
