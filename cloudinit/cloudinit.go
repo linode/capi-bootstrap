@@ -108,22 +108,11 @@ func GenerateCloudInit(ctx context.Context, values *types.Values, infra infrastr
 	writeFiles = append(writeFiles, additionalControlPlaneFiles...)
 	writeFiles = append(writeFiles, controlPlaneCertFiles...)
 	writeFiles = append(writeFiles, capiManifests.AdditionalFiles...)
-	tarWriteFiles := false
-	if tarWriteFiles {
-		fileReader, err := createTar(writeFiles)
+	if values.TarWriteFiles {
+		writeFiles, err = createTar(writeFiles)
 		if err != nil {
 			return nil, err
 		}
-
-		data, err := io.ReadAll(fileReader)
-		if err != nil {
-			return nil, err
-		}
-
-		writeFiles = []capiYaml.InitFile{{
-			Path:    "/tmp/cloud-init-files.tgz",
-			Content: string(data),
-		}}
 		runCmds = append([]string{"tar -C / -xvf /tmp/cloud-init-files.tgz", "tar -xf /tmp/cloud-init-files.tgz --to-command='xargs -0 cloud-init query -f > /$TAR_FILENAME'"}, runCmds...)
 	}
 
@@ -171,7 +160,7 @@ func GenerateCapiManifests(ctx context.Context, values *types.Values, infra infr
 	return capiManifests, nil
 }
 
-func createTar(cloudFiles []capiYaml.InitFile) (io.Reader, error) {
+func createTar(cloudFiles []capiYaml.InitFile) ([]capiYaml.InitFile, error) {
 	var buf bytes.Buffer
 	gzipWriter := gzip.NewWriter(&buf)
 	defer func(gzipWriter *gzip.Writer) {
@@ -210,7 +199,17 @@ func createTar(cloudFiles []capiYaml.InitFile) (io.Reader, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &buf, nil
+
+	data, err := io.ReadAll(&buf)
+	if err != nil {
+		return nil, err
+	}
+
+	writeFiles := []capiYaml.InitFile{{
+		Path:    "/tmp/cloud-init-files.tgz",
+		Content: string(data),
+	}}
+	return writeFiles, nil
 }
 
 func UpdateManifest(ctx context.Context, yamlManifest string, infra infrastructure.Provider, controlPlane controlplane.Provider, values *types.Values) ([]byte, *capiYaml.ParsedManifest, error) {
