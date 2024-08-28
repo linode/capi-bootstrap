@@ -28,15 +28,15 @@ var clusterCmd = &cobra.Command{
 }
 
 type clusterOptions struct {
-	flavor                 string
-	infrastructureProvider string
+	backend        string
+	controlPlane   string
+	infrastructure string
+	capi           string
 
 	manifest                 string
 	kubernetesVersion        string
 	controlPlaneMachineCount int64
 	workerMachineCount       int64
-
-	backend string
 
 	url string
 }
@@ -57,18 +57,16 @@ func init() {
 		"The number of worker machines for the workload cluster. (default 0)")
 
 	// flags for the repository source
-	clusterCmd.Flags().StringVarP(&clusterOpts.infrastructureProvider, "infrastructure", "i", "",
+	clusterCmd.Flags().StringVarP(&clusterOpts.infrastructure, "infrastructure", "i", "",
 		"The infrastructure provider to read the workload cluster template from. If unspecified, the default infrastructure provider will be used.")
-	clusterCmd.Flags().StringVarP(&clusterOpts.flavor, "flavor", "f", "",
-		"The workload cluster template variant to be used when reading from the infrastructure provider repository. If unspecified, the default cluster template will be used.")
+	clusterCmd.Flags().StringVarP(&clusterOpts.controlPlane, "controlplane", "c", "",
+		"The control plane provider to use for this cluster.")
+	clusterCmd.Flags().StringVarP(&clusterOpts.capi, "capi", "", "",
+		"The CAPI provider configuration that should be used.")
 
 	// flags for the url source
 	clusterCmd.Flags().StringVar(&clusterOpts.url, "from", "",
 		"The URL to read the workload cluster template from. If unspecified, the infrastructure provider repository URL will be used. If set to '-', the workload cluster template is read from stdin.")
-
-	// flags for the backend provider
-	clusterCmd.Flags().StringVar(&clusterOpts.backend, "backend", "file",
-		"The backend provider to use to store configuration for the cluster")
 
 	// flags for the config map source
 	rootCmd.AddCommand(clusterCmd)
