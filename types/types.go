@@ -2,8 +2,10 @@ package types
 
 import (
 	"io/fs"
+	"os"
 
 	v1 "k8s.io/client-go/tools/clientcmd/api/v1"
+	"k8s.io/klog/v2"
 )
 
 // Values is the struct including information parsed by all providers.
@@ -48,4 +50,32 @@ type NodeInfo struct {
 	Version           string
 	ExternalIP        string
 	DaysSinceCreation string
+}
+
+type Config struct {
+	Defaults       Defaults
+	Profiles       map[string]Defaults
+	Backend        map[string]Env
+	CAPI           map[string]Env
+	ControlPlane   map[string]Env
+	Infrastructure map[string]Env
+}
+
+type Defaults struct {
+	Backend        string
+	CAPI           string
+	ControlPlane   string
+	Infrastructure string
+}
+
+type Env map[string]string
+
+func (e Env) Expand() error {
+	for key, val := range e {
+		klog.V(5).Infof("expanding env: %s=%s", key, val)
+		if err := os.Setenv(key, val); err != nil {
+			return err
+		}
+	}
+	return nil
 }
