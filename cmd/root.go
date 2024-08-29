@@ -25,12 +25,14 @@ var (
 	configFileDefault = filepath.Join("$XDG_CONFIG_HOME", "cluster-api", "bootstrap.yaml")
 )
 
-// rootCmd represents the base command when called without any subcommands.
 var rootCmd = &cobra.Command{
 	Use:               AppName,
 	Short:             "",
 	Long:              ``,
 	PersistentPreRunE: loadConfig,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return nil
+	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

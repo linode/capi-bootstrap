@@ -10,7 +10,6 @@ import (
 	"capi-bootstrap/state"
 )
 
-// deleteCmd represents the delete command.
 var deleteCmd = &cobra.Command{
 	Use:   "delete",
 	Short: "",

@@ -19,7 +19,6 @@ import (
 	capiYaml "capi-bootstrap/yaml"
 )
 
-// clusterCmd represents the cluster command.
 var clusterCmd = &cobra.Command{
 	Use:   "cluster",
 	Short: "",
@@ -29,9 +28,9 @@ var clusterCmd = &cobra.Command{
 
 type clusterOptions struct {
 	backend        string
+	capi           string
 	controlPlane   string
 	infrastructure string
-	capi           string
 
 	manifest                 string
 	kubernetesVersion        string

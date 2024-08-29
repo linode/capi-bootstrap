@@ -14,7 +14,6 @@ import (
 	capiYaml "capi-bootstrap/yaml"
 )
 
-// listCmd represents the list command.
 var listCmd = &cobra.Command{
 	Use:   "list",
 	Short: "list clusters",

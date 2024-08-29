@@ -5,15 +5,15 @@ import (
 	"k8s.io/klog/v2"
 )
 
-var getCmd = &cobra.Command{
-	Use:   "get",
+var putCmd = &cobra.Command{
+	Use:   "put",
 	Short: "",
 	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		klog.Info("get called")
+		klog.Info("put called")
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(getCmd)
+	rootCmd.AddCommand(putCmd)
 }
