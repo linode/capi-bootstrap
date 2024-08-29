@@ -11,8 +11,7 @@ import (
 	"capi-bootstrap/yaml"
 )
 
-// kubeconfigCmd represents the kubeconfig command.
-var kubeconfigCmd = &cobra.Command{
+var getKubeconfigCmd = &cobra.Command{
 	Use:   "kubeconfig",
 	Short: "get kubeconfig for a cluster",
 	Long:  ``,
@@ -28,9 +27,9 @@ var kubeconfigCmd = &cobra.Command{
 }
 
 func init() {
-	kubeconfigCmd.Flags().StringP("backend", "b", "",
+	getKubeconfigCmd.Flags().StringP("backend", "b", "",
 		"backend to use for retrieving the kubeconfig")
-	getCmd.AddCommand(kubeconfigCmd)
+	getCmd.AddCommand(getKubeconfigCmd)
 }
 
 func runGetKubeconfig(cmd *cobra.Command, clusterName string) error {

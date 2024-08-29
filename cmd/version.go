@@ -9,7 +9,6 @@ var (
 	appVersion string
 )
 
-// versionCmd.
 var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Show the version of " + AppName,
