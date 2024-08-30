@@ -3,7 +3,7 @@
   "packages": [
     "golangci-lint@latest",
     "clusterctl@latest",
-    "go@1.22.2",
+    "go@1.23.0",
     "kubectl@latest"
   ],
   "shell": {

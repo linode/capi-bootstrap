@@ -19,21 +19,28 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  unit_test__lint__build:
+  lint:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        go-version: ["1.23", "stable"]
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Go
+      - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ matrix.go-version }}
+          go-version-file: 'go.mod'
+          check-latest: true
       - name: Lint
         run: make lint
+  unit-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          check-latest: true
       - name: Test
         run: make test
       - name: Upload coverage reports to Codecov
@@ -44,5 +51,15 @@ jobs:
           verbose: true
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: linode/capi-bootstrap
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          check-latest: true
       - name: Build
         run: make build
