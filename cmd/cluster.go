@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"capi-bootstrap/providers"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -93,40 +95,38 @@ func runBootstrapCluster(cmd *cobra.Command, _ []string) error {
 	if manifestFileName == "-" {
 		values.ManifestFS = cloudinit.IoFS{Reader: cmd.InOrStdin()}
 	}
-
-	capiManifests, err := cloudinit.GenerateCapiManifests(ctx, values, nil, nil, false)
+	provider := providers.Providers{}
+	rawYaml, err := fs.ReadFile(values.ManifestFS, manifestFileName)
 	if err != nil {
-		return fmt.Errorf("could not parse manifest %s: %s", values.ManifestFile, err)
+		return fmt.Errorf("error reading file: %s", err)
 	}
-
-	values.Manifests = strings.Split(capiManifests.ManifestFile.Content, "---")
-
+	values.Manifests = strings.Split(string(rawYaml), "---")
 	clusterSpec := capiYaml.GetClusterDef(values.Manifests)
 	if clusterSpec == nil {
 		return errors.New("cluster not found")
 	}
 	values.Namespace = clusterSpec.Namespace
 
-	infrastructureProvider := infrastructure.NewProvider(clusterSpec.Spec.InfrastructureRef.Kind)
-	if infrastructureProvider == nil {
+	provider.Infrastructure = infrastructure.NewProvider(clusterSpec.Spec.InfrastructureRef.Kind)
+	if provider.Infrastructure == nil {
 		return errors.New("infrastructure provider not found for " + clusterSpec.Spec.InfrastructureRef.Kind)
 	}
-	controlPlaneProvider := controlplane.NewProvider(clusterSpec.Spec.ControlPlaneRef.Kind)
-	if controlPlaneProvider == nil {
+	provider.ControlPlane = controlplane.NewProvider(clusterSpec.Spec.ControlPlaneRef.Kind)
+	if provider.ControlPlane == nil {
 		return errors.New("ControlPlane provider not found for " + clusterSpec.Spec.ControlPlaneRef.Kind)
 	}
 	values.ClusterName = clusterSpec.Name
 	values.ClusterKind = clusterSpec.Spec.InfrastructureRef.Kind
 
-	backendProvider := backend.NewProvider(clusterOpts.backend)
-	if backendProvider == nil {
+	provider.Backend = backend.NewProvider(clusterOpts.backend)
+	if provider.Backend == nil {
 		return errors.New("backend provider not specified, options are: " + strings.Join(backend.ListProviders(), ", "))
 	}
-	if err := backendProvider.PreCmd(ctx, values.ClusterName); err != nil {
+	if err := provider.Backend.PreCmd(ctx, values.ClusterName); err != nil {
 		return err
 	}
 
-	_, err = backendProvider.Read(ctx, values.ClusterName)
+	_, err = provider.Backend.Read(ctx, values.ClusterName)
 	if err == nil { // cluster already exists, don't overwrite it
 		return errors.New("cluster state already exists in backend, delete before trying again")
 	}
@@ -136,15 +136,15 @@ func runBootstrapCluster(cmd *cobra.Command, _ []string) error {
 	}
 	klog.Infof("cluster name: %s", values.ClusterName)
 
-	if err := infrastructureProvider.PreCmd(ctx, values); err != nil {
+	if err := provider.Infrastructure.PreCmd(ctx, values); err != nil {
 		return err
 	}
 
-	if err := infrastructureProvider.PreDeploy(ctx, values); err != nil {
+	if err := provider.Infrastructure.PreDeploy(ctx, values); err != nil {
 		return err
 	}
 
-	if err := controlPlaneProvider.PreDeploy(ctx, values); err != nil {
+	if err := provider.ControlPlane.PreDeploy(ctx, values); err != nil {
 		return err
 	}
 
@@ -153,28 +153,28 @@ func runBootstrapCluster(cmd *cobra.Command, _ []string) error {
 		return err
 	}
 
-	cloudConfig, err := cloudinit.GenerateCloudInit(ctx, values, infrastructureProvider, controlPlaneProvider, backendProvider)
+	cloudConfig, err := cloudinit.GenerateCloudInit(ctx, values, provider)
 	if err != nil {
 		return err
 	}
 
-	if err := infrastructureProvider.Deploy(ctx, values, cloudConfig); err != nil {
+	if err := provider.Infrastructure.Deploy(ctx, values, cloudConfig); err != nil {
 		return err
 	}
 
-	if err := infrastructureProvider.PostDeploy(ctx, values); err != nil {
+	if err := provider.Infrastructure.PostDeploy(ctx, values); err != nil {
 		return err
 	}
 
 	clusterState.Values = values
-	clusterState.Backend = backendProvider
-	clusterState.ControlPlane = controlPlaneProvider
-	clusterState.Infrastructure = infrastructureProvider
+	clusterState.Backend = provider.Backend
+	clusterState.ControlPlane = provider.ControlPlane
+	clusterState.Infrastructure = provider.Infrastructure
 
 	c, err := clusterState.ToConfig()
 	if err != nil {
 		return err
 	}
 
-	return backendProvider.WriteConfig(ctx, values.ClusterName, c)
+	return provider.Backend.WriteConfig(ctx, values.ClusterName, c)
 }

@@ -1,6 +1,7 @@
 package cloudinit
 
 import (
+	"capi-bootstrap/providers"
 	"context"
 	"errors"
 	"os"
@@ -124,8 +125,7 @@ runcmd:
     - curl install-manifests
     - curl install-k8s.com
     - curl -s -L https://github.com/derailed/k9s/releases/download/v0.32.4/k9s_Linux_amd64.tar.gz | tar -xvz -C /usr/local/bin k9s
-    - echo "alias k=\"k3s kubectl\"" >> /root/.bashrc
-    - echo "export KUBECONFIG=/etc/rancher/k3s/k3s.yaml" >> /root/.bashrc
+    - echo "alias k=\"kubectl\"" >> /root/.bashrc
     - bash /tmp/init-cluster.sh
 `
 	expectedTarManfest := `## template: jinja
@@ -658,7 +658,12 @@ spec:
 			infra := tc.mockInfraClient(ctx, t, infraMock)
 			controlPlane := tc.mockControlPlaneClient(ctx, t, controlPlaneMock)
 			backend := tc.mocBackendClient(ctx, t, backendMock)
-			manifest, err := GenerateCloudInit(ctx, &tc.value, infra, controlPlane, backend)
+			mockProviders := providers.Providers{
+				Infrastructure: infra,
+				ControlPlane:   controlPlane,
+				Backend:        backend,
+			}
+			manifest, err := GenerateCloudInit(ctx, &tc.value, mockProviders)
 
 			if tc.wantErr == "" {
 				assert.NoError(t, err)
@@ -795,12 +800,16 @@ spec:
 			controlPlaneMock := mockControlplane.NewMockProvider(ctrl)
 			infra := tc.mockInfraClient(ctx, t, infraMock)
 			controlPlane := tc.mockControlPlaneClient(ctx, t, controlPlaneMock)
+			mockProviders := providers.Providers{
+				Infrastructure: infra,
+				ControlPlane:   controlPlane,
+			}
 			values := &types.Values{
 				ManifestFile:         "tmpfile",
 				ManifestFS:           os.DirFS(dir),
 				BootstrapManifestDir: "/tmp/",
 			}
-			manifest, err := GenerateCapiManifests(ctx, values, infra, controlPlane, false)
+			manifest, err := GenerateCapiManifests(ctx, values, mockProviders)
 
 			if tc.wantErr == "" {
 				assert.NoError(t, err)

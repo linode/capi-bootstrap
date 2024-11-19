@@ -1,6 +1,7 @@
 package controlplane
 
 import (
+	"capi-bootstrap/providers/controlplane/kubeadm"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -16,6 +17,7 @@ func TestNewProvider(t *testing.T) {
 	}
 	tests := []test{
 		{name: "k3s", input: "KThreesControlPlane", want: k3s.NewControlPlane()},
+		{name: "kubeadm", input: "KubeadmControlPlane", want: kubeadm.NewControlPlane()},
 		{name: "not matching name", input: "wrong", want: nil},
 		{name: "no name", input: "", want: nil},
 	}

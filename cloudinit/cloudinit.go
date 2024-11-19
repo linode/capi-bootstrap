@@ -3,6 +3,8 @@ package cloudinit
 import (
 	"archive/tar"
 	"bytes"
+	"capi-bootstrap/helm"
+	"capi-bootstrap/providers"
 	"compress/gzip"
 	"context"
 	"embed"
@@ -14,9 +16,6 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"capi-bootstrap/providers/backend"
-	"capi-bootstrap/providers/controlplane"
-	"capi-bootstrap/providers/infrastructure"
 	"capi-bootstrap/types"
 	capiYaml "capi-bootstrap/yaml"
 )
@@ -24,10 +23,9 @@ import (
 //go:embed files
 var files embed.FS
 
-func GenerateCloudInit(ctx context.Context, values *types.Values, infra infrastructure.Provider, controlPlane controlplane.Provider, backend backend.Provider) ([]byte, error) {
+func GenerateCloudInit(ctx context.Context, values *types.Values, providers providers.Providers) ([]byte, error) {
 	debugCmds := []string{"curl -s -L https://github.com/derailed/k9s/releases/download/v0.32.4/k9s_Linux_amd64.tar.gz | tar -xvz -C /usr/local/bin k9s",
-		`echo "alias k=\"k3s kubectl\"" >> /root/.bashrc`,
-		"echo \"export KUBECONFIG=/etc/rancher/k3s/k3s.yaml\" >> /root/.bashrc"}
+		`echo "alias k=\"kubectl\"" >> /root/.bashrc`}
 	initScriptPath := "/tmp/init-cluster.sh"
 	certManager, err := generateCertManagerManifest(values)
 	if err != nil {
@@ -37,52 +35,51 @@ func GenerateCloudInit(ctx context.Context, values *types.Values, infra infrastr
 	if err != nil {
 		return nil, err
 	}
-
-	capiManifests, err := GenerateCapiManifests(ctx, values, infra, controlPlane, true)
+	capiManifests, err := GenerateCapiManifests(ctx, values, providers)
 	if err != nil {
 		return nil, err
 	}
 
 	// infra specific
-	additionalInfraFiles, err := infra.GenerateAdditionalFiles(ctx, values)
+	additionalInfraFiles, err := providers.Infrastructure.GenerateAdditionalFiles(ctx, values)
 	if err != nil {
 		return nil, err
 	}
-	infraCapi, err := infra.GenerateCapiFile(ctx, values)
+	infraCapi, err := providers.Infrastructure.GenerateCapiFile(ctx, values)
 	if err != nil {
 		return nil, err
 	}
-	capiPivotMachine, err := infra.GenerateCapiMachine(ctx, values)
+	capiPivotMachine, err := providers.Infrastructure.GenerateCapiMachine(ctx, values)
 	if err != nil {
 		return nil, err
 	}
 
 	// control plane specific
-	controlPlaneCapi, err := controlPlane.GenerateCapiFile(ctx, values)
+	controlPlaneCapi, err := providers.ControlPlane.GenerateCapiFile(ctx, values)
 	if err != nil {
 		return nil, err
 	}
-	additionalControlPlaneFiles, err := controlPlane.GenerateAdditionalFiles(ctx, values)
+	additionalControlPlaneFiles, err := providers.ControlPlane.GenerateAdditionalFiles(ctx, values)
 	if err != nil {
 		return nil, err
 	}
-	initScript, err := controlPlane.GenerateInitScript(ctx, initScriptPath, values)
+	initScript, err := providers.ControlPlane.GenerateInitScript(ctx, initScriptPath, values)
 	if err != nil {
 		return nil, err
 	}
-	controlPlaneRunCmd, err := controlPlane.GenerateRunCommand(ctx, values)
+	controlPlaneRunCmd, err := providers.ControlPlane.GenerateRunCommand(ctx, values)
 	if err != nil {
 		return nil, err
 	}
-	controlPlaneCertFiles, err := controlPlane.GetControlPlaneCertFiles(ctx)
+	controlPlaneCertFiles, err := providers.ControlPlane.GetControlPlaneCertFiles(ctx)
 	if err != nil {
 		return nil, err
 	}
-	controlPlaneCertSecrets, err := controlPlane.GetControlPlaneCertSecret(ctx, values)
+	controlPlaneCertSecrets, err := providers.ControlPlane.GetControlPlaneCertSecret(ctx, values)
 	if err != nil {
 		return nil, err
 	}
-	kubeconfigSecret, err := controlPlane.GetKubeconfig(ctx, values)
+	kubeconfigSecret, err := providers.ControlPlane.GetKubeconfig(ctx, values)
 	if err != nil {
 		return nil, err
 	}
@@ -120,7 +117,7 @@ func GenerateCloudInit(ctx context.Context, values *types.Values, infra infrastr
 		WriteFiles: writeFiles,
 		RunCmd:     runCmds,
 	}
-	downloadCmds, err := backend.WriteFiles(ctx, values.ClusterName, &cloudConfig)
+	downloadCmds, err := providers.Backend.WriteFiles(ctx, values.ClusterName, &cloudConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -144,19 +141,29 @@ func generateCapiOperator(values *types.Values) (*capiYaml.InitFile, error) {
 	return capiYaml.ConstructFile(filePath, filepath.Join("files", "capi-operator.yaml"), files, values, false)
 }
 
-func GenerateCapiManifests(ctx context.Context, values *types.Values, infra infrastructure.Provider, controlPlane controlplane.Provider, escapeYaml bool) (*capiYaml.ParsedManifest, error) {
+func GenerateCapiManifests(ctx context.Context, values *types.Values, providers providers.Providers) (*capiYaml.ParsedManifest, error) {
 	filePath := filepath.Join(values.BootstrapManifestDir, "capi-manifests.yaml")
-	cloudInitFile, err := capiYaml.ConstructFile(filePath, values.ManifestFile, values.ManifestFS, values, escapeYaml)
+
+	capiManifests, err := UpdateManifest(ctx, providers, values)
 	if err != nil {
 		return nil, err
 	}
-	var capiManifests *capiYaml.ParsedManifest
-	initFileContent, capiManifests, err := UpdateManifest(ctx, cloudInitFile.Content, infra, controlPlane, values)
+	helmFiles, err := helm.AddHelmCharts(values)
 	if err != nil {
 		return nil, err
 	}
-	cloudInitFile.Content = string(initFileContent)
-	capiManifests.ManifestFile = cloudInitFile
+	capiManifests.AdditionalFiles = append(capiManifests.AdditionalFiles, helmFiles...)
+	rawYaml := strings.Join(values.Manifests, "---\n")
+	manifest, err := capiYaml.TemplateManifest([]byte(rawYaml), values.ManifestFile, values, true)
+	if err != nil {
+		return nil, err
+	}
+	values.Manifests = strings.Split(string(manifest), "---")
+	cloudInitFile := capiYaml.InitFile{
+		Path: filePath,
+	}
+	cloudInitFile.Content = string(manifest)
+	capiManifests.ManifestFile = &cloudInitFile
 	return capiManifests, nil
 }
 
@@ -211,26 +218,24 @@ func tarFromInitFiles(files []capiYaml.InitFile) (data []byte, err error) {
 	return data, err
 }
 
-func UpdateManifest(ctx context.Context, yamlManifest string, infra infrastructure.Provider, controlPlane controlplane.Provider, values *types.Values) ([]byte, *capiYaml.ParsedManifest, error) {
-	manifests := strings.Split(yamlManifest, "---")
+func UpdateManifest(ctx context.Context, providers providers.Providers, values *types.Values) (*capiYaml.ParsedManifest, error) {
 	controlPlaneManifests := &capiYaml.ParsedManifest{}
 	var err error
-	if err := capiYaml.UpdateCluster(manifests); err != nil {
-		return nil, nil, err
+	if err := capiYaml.UpdateCluster(values.Manifests); err != nil {
+		return nil, err
 	}
-	if infra != nil {
-		if err := infra.UpdateManifests(ctx, manifests, values); err != nil {
-			return nil, nil, err
+	if providers.Infrastructure != nil {
+		if err := providers.Infrastructure.UpdateManifests(ctx, values.Manifests, values); err != nil {
+			return nil, err
 		}
 	}
 
-	if controlPlane != nil {
-		controlPlaneManifests, err = controlPlane.UpdateManifests(ctx, manifests, values)
+	if providers.ControlPlane != nil {
+		controlPlaneManifests, err = providers.ControlPlane.UpdateManifests(ctx, values.Manifests, values)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 	}
 
-	yamlManifest = strings.Join(manifests, "---\n")
-	return []byte(yamlManifest), controlPlaneManifests, nil
+	return controlPlaneManifests, nil
 }

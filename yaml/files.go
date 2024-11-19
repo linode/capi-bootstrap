@@ -13,7 +13,11 @@ import (
 )
 
 func ConstructFile(filePath string, localPath string, filesystem fs.FS, values any, escapeYaml bool) (*InitFile, error) {
-	manifest, err := templateManifest(filesystem, localPath, values, escapeYaml)
+	rawYaml, err := fs.ReadFile(filesystem, localPath)
+	if err != nil {
+		return nil, fmt.Errorf("error reading file: %s", err)
+	}
+	manifest, err := TemplateManifest(rawYaml, localPath, values, escapeYaml)
 	if err != nil {
 		return nil, err
 	}
@@ -25,14 +29,12 @@ func ConstructFile(filePath string, localPath string, filesystem fs.FS, values a
 	return &initFile, nil
 }
 
-func templateManifest(filesystem fs.FS, localPath string, templateValues any, escapeFile bool) ([]byte, error) {
+func TemplateManifest(rawYaml []byte, localPath string, templateValues any, escapeFile bool) ([]byte, error) {
 	var err error
+
 	tmpl := template.New(filepath.Base(localPath))
 	tmpl.Delims("[[[", "]]]")
-	rawYaml, err := fs.ReadFile(filesystem, localPath)
-	if err != nil {
-		return nil, fmt.Errorf("error reading file: %s", err)
-	}
+
 	escapedYaml := string(rawYaml)
 	if escapeFile {
 		// convert '{{ }}' to "{{ }}" then escape template

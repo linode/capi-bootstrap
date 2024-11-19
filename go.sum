@@ -211,6 +211,8 @@ github.com/json-iterator/go v1.1.12 h1:PV8peI4a0ysnczrg+LtxykD8LfKY9ML6u2jnxaEnr
 github.com/json-iterator/go v1.1.12/go.mod h1:e30LSqwooZae/UwlEbR2852Gd8hjQvJoHmT4TnhNGBo=
 github.com/k3s-io/cluster-api-k3s v0.1.10-0.20240507063454-ae3b2166b1b9 h1:IgJqsynbzbb5qbQSjMuVI3qm/TaV2MhD4YqnD01cYNo=
 github.com/k3s-io/cluster-api-k3s v0.1.10-0.20240507063454-ae3b2166b1b9/go.mod h1:WzirKccqh6PsnQ19pZ5q1GaD5rmfiOGVsAei7pYqtTQ=
+github.com/k3s-io/helm-controller v0.16.3 h1:zjC0PsQF2Pf/LM1Cbfz/2dV6ee6XtCAWyG1PO96m7ow=
+github.com/k3s-io/helm-controller v0.16.3/go.mod h1:AcSxEhOIUgeVvBTnJOAwcezBZXtYew/RhKwO5xp3RlM=
 github.com/kisielk/errcheck v1.5.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI2bnpBCr8=
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
 github.com/kr/logfmt v0.0.0-20140226030751-b84e30acd515/go.mod h1:+0opPa2QZZtGFBFZlji/RkVcI2GknAs/DXo4wKdlNEc=
@@ -583,6 +585,8 @@ sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.30.3 h1:2770sDpzrjjsA
 sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.30.3/go.mod h1:Ve9uj1L+deCXFrPOk1LpFXqTg7LCFzFso6PA48q/XZw=
 sigs.k8s.io/cluster-api v1.8.1 h1:OA3w1CjCmXXXDL7aY3WDe+seL0mdFVJX1K5mZwqKbDE=
 sigs.k8s.io/cluster-api v1.8.1/go.mod h1:pXv5LqLxuIbhGIXykyNKiJh+KrLweSBajVHHitPLyoY=
+sigs.k8s.io/cluster-api-addon-provider-helm v0.2.4 h1:QVHsoG65OaPNmmTYyYjkrc9U/pyoF3nANs7XDGfs5Uk=
+sigs.k8s.io/cluster-api-addon-provider-helm v0.2.4/go.mod h1:MyKmUXjxBqNdobwhbdF3BwpKfvlELrHmAKxOdxtzWvI=
 sigs.k8s.io/controller-runtime v0.19.0 h1:nWVM7aq+Il2ABxwiCizrVDSlmDcshi9llbaFbC0ji/Q=
 sigs.k8s.io/controller-runtime v0.19.0/go.mod h1:iRmWllt8IlaLjvTTDLhRBXIEtkCK6hwVBJJsYS9Ajf4=
 sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd h1:EDPBXCAspyGV4jQlpZSudPeMmr1bNJefnuqLsRAsHZo=

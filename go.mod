@@ -7,9 +7,11 @@ require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.28
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.59.0
 	github.com/aws/smithy-go v1.20.4
+	github.com/blang/semver/v4 v4.0.0
 	github.com/google/go-github/v63 v63.0.0
 	github.com/google/uuid v1.6.0
 	github.com/k3s-io/cluster-api-k3s v0.1.10-0.20240507063454-ae3b2166b1b9
+	github.com/k3s-io/helm-controller v0.16.3
 	github.com/linode/cluster-api-provider-linode v0.6.0
 	github.com/linode/linodego v1.39.0
 	github.com/spf13/cobra v1.8.1
@@ -25,6 +27,7 @@ require (
 	k8s.io/kubectl v0.31.0
 	k8s.io/utils v0.0.0-20240711033017-18e509b52bc8
 	sigs.k8s.io/cluster-api v1.8.1
+	sigs.k8s.io/cluster-api-addon-provider-helm v0.2.4
 	sigs.k8s.io/controller-runtime v0.19.0
 	sigs.k8s.io/yaml v1.4.0
 )
@@ -32,7 +35,6 @@ require (
 require (
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
-	github.com/Masterminds/semver/v3 v3.2.1 // indirect
 	github.com/akamai/AkamaiOPEN-edgegrid-golang/v8 v8.3.0 // indirect
 	github.com/andres-erbsen/clock v0.0.0-20160526145045-9e14626cd129 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
@@ -47,7 +49,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/internal/presigned-url v1.11.18 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/s3shared v1.17.16 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
