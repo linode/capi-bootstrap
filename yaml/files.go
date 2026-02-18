@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/fs"
-	"path/filepath"
+	"path"
 	"strings"
 	"text/template"
 
@@ -27,7 +27,7 @@ func ConstructFile(filePath string, localPath string, filesystem fs.FS, values a
 
 func templateManifest(filesystem fs.FS, localPath string, templateValues any, escapeFile bool) ([]byte, error) {
 	var err error
-	tmpl := template.New(filepath.Base(localPath))
+	tmpl := template.New(path.Base(localPath))
 	tmpl.Delims("[[[", "]]]")
 	rawYaml, err := fs.ReadFile(filesystem, localPath)
 	if err != nil {

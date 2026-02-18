@@ -8,7 +8,7 @@ import (
 	"embed"
 	"fmt"
 	"io"
-	"path/filepath"
+	"path"
 	"strings"
 	"time"
 
@@ -135,17 +135,17 @@ func GenerateCloudInit(ctx context.Context, values *types.Values, infra infrastr
 }
 
 func generateCertManagerManifest(values *types.Values) (*capiYaml.InitFile, error) {
-	filePath := filepath.Join(values.BootstrapManifestDir, "cert-manager.yaml")
-	return capiYaml.ConstructFile(filePath, filepath.Join("files", "cert-manager.yaml"), files, values, false)
+	filePath := path.Join(values.BootstrapManifestDir, "cert-manager.yaml")
+	return capiYaml.ConstructFile(filePath, path.Join("files", "cert-manager.yaml"), files, values, false)
 }
 
 func generateCapiOperator(values *types.Values) (*capiYaml.InitFile, error) {
-	filePath := filepath.Join(values.BootstrapManifestDir, "capi-operator.yaml")
-	return capiYaml.ConstructFile(filePath, filepath.Join("files", "capi-operator.yaml"), files, values, false)
+	filePath := path.Join(values.BootstrapManifestDir, "capi-operator.yaml")
+	return capiYaml.ConstructFile(filePath, path.Join("files", "capi-operator.yaml"), files, values, false)
 }
 
 func GenerateCapiManifests(ctx context.Context, values *types.Values, infra infrastructure.Provider, controlPlane controlplane.Provider, escapeYaml bool) (*capiYaml.ParsedManifest, error) {
-	filePath := filepath.Join(values.BootstrapManifestDir, "capi-manifests.yaml")
+	filePath := path.Join(values.BootstrapManifestDir, "capi-manifests.yaml")
 	cloudInitFile, err := capiYaml.ConstructFile(filePath, values.ManifestFile, values.ManifestFS, values, escapeYaml)
 	if err != nil {
 		return nil, err

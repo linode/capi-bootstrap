@@ -1,7 +1,5 @@
 package k3s
 
-import "C"
-
 import (
 	"context"
 	"crypto"
