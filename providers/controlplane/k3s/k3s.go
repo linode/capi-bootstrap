@@ -58,10 +58,7 @@ func (p *ControlPlane) GenerateAdditionalFiles(_ context.Context, values *types.
 	if err != nil {
 		return nil, err
 	}
-	manifestFile, err := generateK3sManifests()
-	if err != nil {
-		return nil, err
-	}
+	manifestFile := generateK3sManifests()
 	return []capiYaml.InitFile{
 		*configFile, *manifestFile,
 	}, nil
@@ -163,11 +160,11 @@ func (p *ControlPlane) generateK3sConfig(values *types.Values) (*capiYaml.InitFi
 	}, nil
 }
 
-func generateK3sManifests() (*capiYaml.InitFile, error) {
+func generateK3sManifests() *capiYaml.InitFile {
 	return &capiYaml.InitFile{
 		Path:    etcd.EtcdProxyDaemonsetYamlLocation,
 		Content: etcd.EtcdProxyDaemonsetYaml,
-	}, nil
+	}
 }
 
 func (p *ControlPlane) UpdateManifests(_ context.Context, manifests []string, values *types.Values) (*capiYaml.ParsedManifest, error) {
@@ -200,7 +197,6 @@ func (p *ControlPlane) UpdateManifests(_ context.Context, manifests []string, va
 				controlPlaneManifests.PostRunCmd = append(controlPlaneManifests.PostRunCmd, parsedCommand)
 			}
 		}
-
 	}
 	return &controlPlaneManifests, nil
 }
@@ -255,7 +251,6 @@ func (p *ControlPlane) GetControlPlaneCertSecret(ctx context.Context, values *ty
 	}
 
 	return &secretFile, nil
-
 }
 
 func (p *ControlPlane) GetControlPlaneCertFiles(ctx context.Context) ([]capiYaml.InitFile, error) {
